@@ -16,6 +16,9 @@ class CPU:
         self.ram = Memoire(4096)
         self.pile = []
         self.etiquettes = {}
+        self.registres = {
+            'rax': 0,  # Registre pour les retours
+        }
 
     def mov(self, dest, src):
         # src peut être une adresse mémoire ou une valeur immédiate
@@ -30,7 +33,10 @@ class CPU:
 
     def xor(self, dest, src):
         val1 = self.ram[dest]
-        val2 = self.ram[src]
+        if isinstance(src, str) and src.startswith('0x'):
+            val2 = self.ram[src]
+        else:
+            val2 = int(src)
         self.ram[dest] = val1 ^ val2
 
     def pop(self, dest):
@@ -44,10 +50,21 @@ class CPU:
         self.pile.append(self.ram['0xRIP'] + 1)
         self.jmp(etiquette)
 
-    def ret(self):
+    def ret(self, data="0x0"):
+        """
+        Retourne une valeur `data` (par défaut "0x0") et met à jour RIP.
+        """
+        if isinstance(data, str) and data.startswith("0x"):
+            retour_valeur = int(data, 16)
+        else:
+            retour_valeur = int(data)
+
+        # Enregistre la valeur dans rax
+        self.registres['rax'] = retour_valeur
+
+        # Mise à jour de RIP
         if self.pile:
-            retour = self.pile.pop()
-            self.ram['0xRIP'] = retour
+            self.ram['0xRIP'] = self.pile.pop()
         else:
             self.ram['0xRIP'] = len(self.programme)
 
@@ -96,14 +113,21 @@ class CPU:
                 self.call(*instr[1:])
                 continue
             elif op == 'ret':
-                self.ret()
+                self.ret(*instr[1:])
                 continue
             elif op == 'db':
                 # Données brutes, on les "pousse" sur la pile
                 self.pile.append(instr[1])
             self.ram['0xRIP'] += 1
 
-# Exemple de programme (addition de deux cases mémoire)
+    def afficher_etat(self):
+        print("Registres :")
+        for registre, valeur in self.registres.items():
+            print(f"{registre}: {valeur}")
+        print("Pile :", self.pile)
+
+
+# Exemple de programme (retourne une valeur via ret)
 programme_asm = """
 ; Stocker 5 à l'adresse 0x10 et 7 à 0x11
 mov 0x10, 5
@@ -123,7 +147,9 @@ cpu = CPU()
 cpu.charger_programme(programme_asm)
 cpu.executer()
 
+# Afficher les registres et la mémoire
+cpu.afficher_etat()
+
 print("RAM (adresses 0x10, 0x11, 0x12) :")
 for addr in ['0x10', '0x11', '0x12']:
     print(f"{addr}: {cpu.ram[addr]}")
-print("Pile :", cpu.pile)
