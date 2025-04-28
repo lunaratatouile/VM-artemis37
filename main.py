@@ -10,76 +10,51 @@ class Memoire:
     def __setitem__(self, adresse, valeur):
         self.memoire[int(adresse, 16)] = valeur
 
-class Registres:
-    def __init__(self):
-        self.registres = {
-            'rax': 0,
-            'rsi': 0,
-            'rsp': 0x7FFF,
-            'rip': 0,
-            'rcx': 0,
-            'rdx': 0,
-            'rdi': 0
-        }
-
-    def __getitem__(self, reg):
-        return self.registres.get(reg, 0)
-
-    def __setitem__(self, reg, valeur):
-        self.registres[reg] = valeur
-
 class CPU:
     def __init__(self):
         self.disk = Memoire(4096)
         self.ram = Memoire(4096)
-        self.registres = Registres()
         self.pile = []
         self.etiquettes = {}
 
     def mov(self, dest, src):
-        if src in self.registres.registres:
-            valeur = self.registres[src]
-        elif src.startswith('0x'):
-            valeur = int(src, 16)
+        # src peut être une adresse mémoire ou une valeur immédiate
+        if isinstance(src, str) and src.startswith('0x'):
+            valeur = self.ram[src]
         else:
             try:
                 valeur = int(src)
             except:
                 valeur = src
-        if dest.startswith('0x'):
-            self.ram[dest] = valeur
-        else:
-            self.registres[dest] = valeur
+        self.ram[dest] = valeur
 
-    def xor(self, reg1, reg2):
-        val1 = self.registres[reg1]
-        val2 = self.registres[reg2]
-        self.registres[reg1] = val1 ^ val2
+    def xor(self, dest, src):
+        val1 = self.ram[dest]
+        val2 = self.ram[src]
+        self.ram[dest] = val1 ^ val2
 
-    def pop(self, reg):
+    def pop(self, dest):
         if self.pile:
-            valeur = self.pile.pop()
-            self.registres[reg] = valeur
+            self.ram[dest] = self.pile.pop()
 
     def jmp(self, etiquette):
-        self.registres['rip'] = self.etiquettes[etiquette]
+        self.ram['0xRIP'] = self.etiquettes[etiquette]
 
     def call(self, etiquette):
-        self.pile.append(self.registres['rip'] + 1)
+        self.pile.append(self.ram['0xRIP'] + 1)
         self.jmp(etiquette)
 
     def ret(self):
         if self.pile:
             retour = self.pile.pop()
-            self.registres['rip'] = retour
+            self.ram['0xRIP'] = retour
         else:
-            # Fin du programme si pile vide (retour du main)
-            self.registres['rip'] = len(self.programme)
+            self.ram['0xRIP'] = len(self.programme)
 
     def charger_programme(self, programme_str):
         lignes = programme_str.strip().split('\n')
         programme = []
-        for idx, ligne in enumerate(lignes):
+        for ligne in lignes:
             ligne = ligne.strip()
             if not ligne or ligne.startswith(';'):
                 continue
@@ -96,16 +71,17 @@ class CPU:
         # Indexation des étiquettes
         self.etiquettes.clear()
         code_sans_etiquettes = []
-        for idx, instr in enumerate(programme):
+        for instr in programme:
             if instr[0] == 'etiquette':
                 self.etiquettes[instr[1]] = len(code_sans_etiquettes)
             else:
                 code_sans_etiquettes.append(instr)
         self.programme = code_sans_etiquettes
+        self.ram['0xRIP'] = 0  # Instruction pointer en RAM
 
     def executer(self):
-        while self.registres['rip'] < len(self.programme):
-            instr = self.programme[self.registres['rip']]
+        while self.ram['0xRIP'] < len(self.programme):
+            instr = self.programme[self.ram['0xRIP']]
             op = instr[0]
             if op == 'mov':
                 self.mov(*instr[1:])
@@ -123,23 +99,22 @@ class CPU:
                 self.ret()
                 continue
             elif op == 'db':
+                # Données brutes, on les "pousse" sur la pile
                 self.pile.append(instr[1])
-            self.registres['rip'] += 1
+            self.ram['0xRIP'] += 1
 
-# Exemple : fonction qui additionne deux valeurs et retourne le résultat via rax
+# Exemple de programme (addition de deux cases mémoire)
 programme_asm = """
-; Programme principal
-start:
-    mov rsi, 5
-    mov rdi, 7
-    call addition
-    ; rax contient maintenant 12
-    jmp end
+; Stocker 5 à l'adresse 0x10 et 7 à 0x11
+mov 0x10, 5
+mov 0x11, 7
+call addition
+jmp end
 
 addition:
-    mov rax, rsi
-    xor rax, rdi   ; Pour l'exemple, mettons rax = rsi ^ rdi (XOR), pas addition réelle
-    ret
+    mov 0x12, 0x10
+    xor 0x12, 0x11   ; 0x12 = 0x10 ^ 0x11 (XOR pour l'exemple)
+    ret 0x12
 
 end:
 """
@@ -148,8 +123,7 @@ cpu = CPU()
 cpu.charger_programme(programme_asm)
 cpu.executer()
 
-print("Registres après exécution :")
-for reg, val in cpu.registres.registres.items():
-    print(f"{reg}: {val}")
+print("RAM (adresses 0x10, 0x11, 0x12) :")
+for addr in ['0x10', '0x11', '0x12']:
+    print(f"{addr}: {cpu.ram[addr]}")
 print("Pile :", cpu.pile)
-print("Résultat retourné par la fonction (rax):", cpu.registres['rax'])
