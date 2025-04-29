@@ -5,10 +5,14 @@ class Memoire:
         self.memoire = [0] * taille
 
     def __getitem__(self, adresse):
-        return self.memoire[int(adresse, 16)]
+        if not isinstance(adresse, int):
+            raise ValueError(f"L'adresse doit être un entier. Adresse reçue : {adresse}")
+        return self.memoire[adresse]
 
     def __setitem__(self, adresse, valeur):
-        self.memoire[int(adresse, 16)] = valeur
+        if not isinstance(adresse, int):
+            raise ValueError(f"L'adresse doit être un entier. Adresse reçue : {adresse}")
+        self.memoire[adresse] = valeur
 
 class CPU:
     def __init__(self):
@@ -19,54 +23,45 @@ class CPU:
         self.registres = {
             'rax': 0,  # Registre pour les retours
         }
+        self.rip = 0  # Pointeur d'instruction (entier)
 
     def mov(self, dest, src):
-        # src peut être une adresse mémoire ou une valeur immédiate
         if isinstance(src, str) and src.startswith('0x'):
-            valeur = self.ram[src]
+            valeur = self.ram[int(src, 16)]
         else:
-            try:
-                valeur = int(src)
-            except:
-                valeur = src
-        self.ram[dest] = valeur
+            valeur = int(src)
+        self.ram[int(dest, 16)] = valeur
 
     def xor(self, dest, src):
-        val1 = self.ram[dest]
+        val1 = self.ram[int(dest, 16)]
         if isinstance(src, str) and src.startswith('0x'):
-            val2 = self.ram[src]
+            val2 = self.ram[int(src, 16)]
         else:
             val2 = int(src)
-        self.ram[dest] = val1 ^ val2
+        self.ram[int(dest, 16)] = val1 ^ val2
 
     def pop(self, dest):
         if self.pile:
-            self.ram[dest] = self.pile.pop()
+            self.ram[int(dest, 16)] = self.pile.pop()
 
     def jmp(self, etiquette):
-        self.ram['0xRIP'] = self.etiquettes[etiquette]
+        self.rip = self.etiquettes[etiquette]
 
     def call(self, etiquette):
-        self.pile.append(self.ram['0xRIP'] + 1)
+        self.pile.append(self.rip + 1)
         self.jmp(etiquette)
 
     def ret(self, data="0x0"):
-        """
-        Retourne une valeur `data` (par défaut "0x0") et met à jour RIP.
-        """
         if isinstance(data, str) and data.startswith("0x"):
             retour_valeur = int(data, 16)
         else:
             retour_valeur = int(data)
 
-        # Enregistre la valeur dans rax
         self.registres['rax'] = retour_valeur
-
-        # Mise à jour de RIP
         if self.pile:
-            self.ram['0xRIP'] = self.pile.pop()
+            self.rip = self.pile.pop()
         else:
-            self.ram['0xRIP'] = len(self.programme)
+            self.rip = len(self.programme)
 
     def charger_programme(self, programme_str):
         lignes = programme_str.strip().split('\n')
@@ -75,6 +70,8 @@ class CPU:
             ligne = ligne.strip()
             if not ligne or ligne.startswith(';'):
                 continue
+            # Supprimer les commentaires
+            ligne = ligne.split(';')[0].strip()
             if ':' in ligne:
                 etiquette = ligne.replace(':', '').strip()
                 programme.append(('etiquette', etiquette))
@@ -85,7 +82,6 @@ class CPU:
             if len(tokens) > 1:
                 args = [a.strip() for a in tokens[1].split(',')]
             programme.append(tuple([instr] + args))
-        # Indexation des étiquettes
         self.etiquettes.clear()
         code_sans_etiquettes = []
         for instr in programme:
@@ -94,11 +90,11 @@ class CPU:
             else:
                 code_sans_etiquettes.append(instr)
         self.programme = code_sans_etiquettes
-        self.ram['0xRIP'] = 0  # Instruction pointer en RAM
+        self.rip = 0  # Initialiser RIP comme entier
 
     def executer(self):
-        while self.ram['0xRIP'] < len(self.programme):
-            instr = self.programme[self.ram['0xRIP']]
+        while self.rip < len(self.programme):
+            instr = self.programme[self.rip]
             op = instr[0]
             if op == 'mov':
                 self.mov(*instr[1:])
@@ -116,16 +112,15 @@ class CPU:
                 self.ret(*instr[1:])
                 continue
             elif op == 'db':
-                # Données brutes, on les "pousse" sur la pile
-                self.pile.append(instr[1])
-            self.ram['0xRIP'] += 1
+                self.pile.append(int(instr[1], 16))
+            self.rip += 1
+        print(self.pile)
 
     def afficher_etat(self):
         print("Registres :")
         for registre, valeur in self.registres.items():
             print(f"{registre}: {valeur}")
         print("Pile :", self.pile)
-
 
 # Exemple de programme (retourne une valeur via ret)
 programme_asm = """
@@ -137,7 +132,7 @@ jmp end
 
 addition:
     mov 0x12, 0x10
-    xor 0x12, 0x11   ; 0x12 = 0x10 ^ 0x11 (XOR pour l'exemple)
+    xor 0x12, 0x11  ; XOR entre 0x10 et 0x11
     ret 0x12
 
 end:
@@ -151,5 +146,5 @@ cpu.executer()
 cpu.afficher_etat()
 
 print("RAM (adresses 0x10, 0x11, 0x12) :")
-for addr in ['0x10', '0x11', '0x12']:
-    print(f"{addr}: {cpu.ram[addr]}")
+for addr in [0x10, 0x11, 0x12]:
+    print(f"0x{addr:X}: {cpu.ram[addr]}")
