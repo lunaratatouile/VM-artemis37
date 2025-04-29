@@ -96,18 +96,15 @@ class CPU:
                 key = event.name
                 if key == 'enter':
                     self.registres['rcx'] = ord('\n')  # Code ASCII pour Entrée
-                    print("Touche capturée : Entrée")
                     break
                 elif key == 'backspace':
                     self.registres['rcx'] = ord('\b')  # Code ASCII pour Retour arrière
-                    print("Touche capturée : Retour arrière")
                     break
                 elif len(key) == 1 and 'a' <= key <= 'z':
                     self.registres['rcx'] = ord(key)  # Code ASCII pour a-z
-                    print(f"Touche capturée : {key}")
                     break
                 else:
-                    print(f"Touche non gérée : {key}")
+                    print(f"Touche non gérée par l'interruption systeme clavier : {key}")
 
     def interruptions(self):
         self.capturer_touche()
@@ -132,7 +129,6 @@ class CPU:
 
             self.rip += 1
             self.interruptions()
-            print(f"Registre rcx (ASCII capturé) : {self.registres['rcx']}")
 
     def afficher_etat(self):
         print(f"Program ended at RIP: {self.rip}")
