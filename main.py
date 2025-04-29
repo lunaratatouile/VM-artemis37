@@ -15,6 +15,7 @@ class Memoire:
         if not isinstance(adresse, int):
             raise ValueError(f"L'adresse doit être un entier. Adresse reçue : {adresse}")
         self.memoire[adresse] = valeur
+
     def afficher_etat(self):
         print("RAM (adresses utilisées) :")
         for addr in range(len(self.memoire)):
@@ -32,7 +33,7 @@ class CPU:
             'rax': 0,  # Registre pour les retours
         }
         self.rip = 0  # Pointeur d'instruction (entier)
-        self.stdout = []  # Ajout d'un stdout pour capturer les sorties
+        self.stdout = []  # Capturer les sorties
 
     def mov(self, dest, src):
         if isinstance(src, str) and src.startswith('0x'):
@@ -48,6 +49,14 @@ class CPU:
         else:
             val2 = int(src)
         self.ram[int(dest, 16)] = val1 ^ val2
+
+    def add(self, dest, src):
+        val1 = self.ram[int(dest, 16)]
+        if isinstance(src, str) and src.startswith('0x'):
+            val2 = self.ram[int(src, 16)]
+        else:
+            val2 = int(src)
+        self.ram[int(dest, 16)] = val1 + val2
 
     def pop(self, dest):
         if self.pile:
@@ -112,6 +121,8 @@ class CPU:
                 self.mov(*instr[1:])
             elif op == 'xor':
                 self.xor(*instr[1:])
+            elif op == 'add':
+                self.add(*instr[1:])
             elif op == 'pop':
                 self.pop(*instr[1:])
             elif op == 'jmp':
@@ -125,39 +136,41 @@ class CPU:
                 continue
             elif op == 'db':
                 self.pile.append(int(instr[1], 16))
+            else:
+                print(f"Instruction inconnue : {op}")
             self.rip += 1
-        # Supprimez l'effacement de l'écran pour conserver les sorties
-        os.system('cls')
-        print(''.join(map(str, self.stdout)))  # Affiche le contenu de stdout
+
+        # Affiche la sortie finale
+        os.system('cls' if os.name == 'nt' else 'clear')
+        print('Sortie (stdout) :', ''.join(map(str, self.stdout)))
 
     def afficher_etat(self):
-        print(f"Program ended in rip pointer: {self.rip}")
-        print(f"Stack :{self.pile}")
+        print(f"Program ended at RIP: {self.rip}")
+        print(f"Pile (stack) : {self.pile}")
         print("Registres :")
         for registre, valeur in self.registres.items():
             print(f"{registre}: {valeur}")
 
 
-# Exemple de programme (retourne une valeur via ret)
+# Exemple de programme (addition)
 programme_asm = """
-; Stocker 5 à l'adresse 0x10 et 1 à 0x11
+; Stocker 5 à l'adresse 0x10 et 3 à 0x11
 mov 0x10, 5
-mov 0x11, 1
-call soustraction
+mov 0x11, 3
+call addition
 jmp end
 
-soustraction:
-    mov 0x12, 0x10
-    xor 0x12, 0x11  ; XOR entre 0x10 et 0x11
-    ret 0x12
+addition:
+mov 0x12, 0x10
+add 0x12, 0x11 ; Additionne 0x10 et 0x11, stocke le résultat à 0x12
+ret 0x12
 
 end:
 """
 
-cpu = CPU()
-cpu.charger_programme(programme_asm)
-cpu.executer()
-
-# Afficher les registres et la mémoire
-cpu.afficher_etat()
-cpu.ram.afficher_etat()
+if __name__ == "__main__":
+    cpu = CPU()
+    cpu.charger_programme(programme_asm)
+    cpu.executer()
+    cpu.afficher_etat()
+    cpu.ram.afficher_etat()
