@@ -1,4 +1,5 @@
 import re
+import os
 
 class Memoire:
     def __init__(self, taille):
@@ -24,6 +25,7 @@ class CPU:
             'rax': 0,  # Registre pour les retours
         }
         self.rip = 0  # Pointeur d'instruction (entier)
+        self.stdout = []  # Ajout d'un stdout pour capturer les sorties
 
     def mov(self, dest, src):
         if isinstance(src, str) and src.startswith('0x'):
@@ -56,6 +58,9 @@ class CPU:
             retour_valeur = int(data, 16)
         else:
             retour_valeur = int(data)
+
+        # Affichage de la valeur retournée dans stdout
+        self.stdout.append(retour_valeur)
 
         self.registres['rax'] = retour_valeur
         if self.pile:
@@ -114,6 +119,8 @@ class CPU:
             elif op == 'db':
                 self.pile.append(int(instr[1], 16))
             self.rip += 1
+            os.system('cls')
+            print(self.stdout)
         print(self.pile)
 
     def afficher_etat(self):
