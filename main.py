@@ -15,6 +15,11 @@ class Memoire:
         if not isinstance(adresse, int):
             raise ValueError(f"L'adresse doit être un entier. Adresse reçue : {adresse}")
         self.memoire[adresse] = valeur
+    def afficher_etat(self):
+        print("RAM (adresses utilisées) :")
+        for addr in range(len(self.memoire)):
+            if self.memoire[addr] != 0:
+                print(f"0x{addr:X}: {self.memoire[addr]}")
 
 
 class CPU:
@@ -155,8 +160,4 @@ cpu.executer()
 
 # Afficher les registres et la mémoire
 cpu.afficher_etat()
-
-print("RAM (adresses utilisées) :")
-for addr in range(len(cpu.ram.memoire)):
-    if cpu.ram.memoire[addr] != 0:
-        print(f"0x{addr:X}: {cpu.ram.memoire[addr]}")
+cpu.ram.afficher_etat()
