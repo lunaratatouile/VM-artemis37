@@ -120,10 +120,11 @@ class CPU:
                 self.pile.append(int(instr[1], 16))
             self.rip += 1
             os.system('cls')
-            print(self.stdout)
-        print(self.pile)
+            print(''.join(self.stdout))
 
     def afficher_etat(self):
+        print(f"Program ended in rip pointer: {self.rip}")
+        print(f"Stack :{self.pile}")
         print("Registres :")
         for registre, valeur in self.registres.items():
             print(f"{registre}: {valeur}")
@@ -131,13 +132,13 @@ class CPU:
 
 # Exemple de programme (retourne une valeur via ret)
 programme_asm = """
-; Stocker 5 à l'adresse 0x10 et 7 à 0x11
+; Stocker 5 à l'adresse 0x10 et 1 à 0x11
 mov 0x10, 5
-mov 0x11, 7
-call addition
+mov 0x11, 1
+call soustraction
 jmp end
 
-addition:
+soustraction:
     mov 0x12, 0x10
     xor 0x12, 0x11  ; XOR entre 0x10 et 0x11
     ret 0x12
