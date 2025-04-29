@@ -63,7 +63,6 @@ class CPU:
 
         # Affichage de la valeur retournée dans stdout
         self.stdout.append(retour_valeur)
-        print(f"Valeur retournée : {retour_valeur}")  # Correction pour afficher immédiatement
 
         self.registres['rax'] = retour_valeur
         if self.pile:
@@ -123,6 +122,7 @@ class CPU:
                 self.pile.append(int(instr[1], 16))
             self.rip += 1
         # Supprimez l'effacement de l'écran pour conserver les sorties
+        os.system('cls')
         print(''.join(map(str, self.stdout)))  # Affiche le contenu de stdout
 
     def afficher_etat(self):
