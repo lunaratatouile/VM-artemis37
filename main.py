@@ -58,6 +58,14 @@ class CPU:
             val2 = int(src)
         self.ram[int(dest, 16)] = val1 + val2
 
+    def sub(self, dest, src):
+        val1 = self.ram[int(dest, 16)]
+        if isinstance(src, str) and src.startswith('0x'):
+            val2 = self.ram[int(src, 16)]
+        else:
+            val2 = int(src)
+        self.ram[int(dest, 16)] = val1 - val2
+
     def pop(self, dest):
         if self.pile:
             self.ram[int(dest, 16)] = self.pile.pop()
@@ -123,6 +131,8 @@ class CPU:
                 self.xor(*instr[1:])
             elif op == 'add':
                 self.add(*instr[1:])
+            elif op == 'sub':
+                self.sub(*instr[1:])
             elif op == 'pop':
                 self.pop(*instr[1:])
             elif op == 'jmp':
@@ -152,25 +162,51 @@ class CPU:
             print(f"{registre}: {valeur}")
 
 
-# Exemple de programme (addition)
-programme_asm = """
-; Stocker 5 à l'adresse 0x10 et 3 à 0x11
-mov 0x10, 5
-mov 0x11, 3
-call addition
-jmp end
-
-addition:
-mov 0x12, 0x10
-add 0x12, 0x11 ; Additionne 0x10 et 0x11, stocke le résultat à 0x12
-ret 0x12
-
-end:
-"""
-
+# Exemple d'utilisation pour test (addition et soustraction)
 if __name__ == "__main__":
+    # Exemple addition
+    programme_add = """
+    ; Addition de 7 et 4
+    mov 0x10, 7
+    mov 0x11, 4
+    call addition
+    jmp end
+
+    addition:
+    mov 0x12, 0x10
+    add 0x12, 0x11
+    ret 0x12
+
+    end:
+    """
+
+    # Exemple soustraction
+    programme_sub = """
+    ; Soustraction de 10 et 3
+    mov 0x20, 10
+    mov 0x21, 3
+    call soustraction
+    jmp end
+
+    soustraction:
+    mov 0x22, 0x20
+    sub 0x22, 0x21
+    ret 0x22
+
+    end:
+    """
+
     cpu = CPU()
-    cpu.charger_programme(programme_asm)
+
+    print("=== Test Addition ===")
+    cpu.charger_programme(programme_add)
+    cpu.executer()
+    cpu.afficher_etat()
+    cpu.ram.afficher_etat()
+
+    print("\n=== Test Soustraction ===")
+    cpu = CPU()  # Réinitialiser CPU pour test propre
+    cpu.charger_programme(programme_sub)
     cpu.executer()
     cpu.afficher_etat()
     cpu.ram.afficher_etat()
