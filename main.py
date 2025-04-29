@@ -128,7 +128,6 @@ class CPU:
         print("Registres :")
         for registre, valeur in self.registres.items():
             print(f"{registre}: {valeur}")
-        print("Pile :", self.pile)
 
 # Exemple de programme (retourne une valeur via ret)
 programme_asm = """
@@ -153,6 +152,7 @@ cpu.executer()
 # Afficher les registres et la mémoire
 cpu.afficher_etat()
 
-print("RAM (adresses 0x10, 0x11, 0x12) :")
-for addr in [0x10, 0x11, 0x12]:
-    print(f"0x{addr:X}: {cpu.ram[addr]}")
+print("RAM (adresses utilisées) :")
+for addr in range(len(cpu.ram.memoire)):
+    if cpu.ram.memoire[addr] != 0:
+        print(f"0x{addr:X}: {cpu.ram.memoire[addr]}")
