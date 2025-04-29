@@ -1,5 +1,6 @@
 import re
 import os
+import keyboard
 
 
 class Memoire:
@@ -31,9 +32,11 @@ class CPU:
         self.etiquettes = {}
         self.registres = {
             'rax': 0,  # Registre pour les retours
+            'rcx': 0,  # Registre pour stocker le code ASCII du caractère
         }
         self.rip = 0  # Pointeur d'instruction (entier)
         self.stdout = []  # Capturer les sorties
+        self.debug_info = []  # Stocker les informations de débogage
 
     def mov(self, dest, src):
         if isinstance(src, str) and src.startswith('0x'):
@@ -121,10 +124,33 @@ class CPU:
         self.programme = code_sans_etiquettes
         self.rip = 0  # Initialiser RIP comme entier
 
+    def capturer_touche(self):
+        """Capture une touche et met à jour le registre rcx avec son code ASCII."""
+        print("Appuyez sur une touche (a-z, Entrée ou Retour arrière)...")
+        while True:
+            event = keyboard.read_event()
+            if event.event_type == keyboard.KEY_DOWN:
+                key = event.name
+                if key == 'enter':
+                    self.registres['rcx'] = ord('\n')  # Code ASCII pour Entrée
+                    break
+                elif key == 'backspace':
+                    self.registres['rcx'] = ord('\b')  # Code ASCII pour Retour arrière
+                    break
+                elif len(key) == 1 and 'a' <= key <= 'z':
+                    self.registres['rcx'] = ord(key)  # Code ASCII pour a-z
+                    break
+
+    def interruptions(self):
+        self.capturer_touche()
+
     def executer(self):
         while self.rip < len(self.programme):
+            os.system('cls' if os.name == 'nt' else 'clear')  # Nettoyer l'écran
             instr = self.programme[self.rip]
             op = instr[0]
+            self.debug_info.append(f"Instruction exécutée : {instr}")  # Ajouter au débogage
+
             if op == 'mov':
                 self.mov(*instr[1:])
             elif op == 'xor':
@@ -150,9 +176,9 @@ class CPU:
                 print(f"Instruction inconnue : {op}")
             self.rip += 1
 
-        # Affiche la sortie finale
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print('Sortie (stdout) :', ''.join(map(str, self.stdout)))
+            self.interruptions()
+            # Afficher l'état après chaque instruction
+            print('Sortie (stdout) :', ''.join(map(str, self.stdout)))
 
     def afficher_etat(self):
         print(f"Program ended at RIP: {self.rip}")
@@ -160,53 +186,19 @@ class CPU:
         print("Registres :")
         for registre, valeur in self.registres.items():
             print(f"{registre}: {valeur}")
+        print("\n=== Informations de débogage ===")
+        for info in self.debug_info:
+            print(info)
 
 
-# Exemple d'utilisation pour test (addition et soustraction)
+# Exemple d'utilisation
 if __name__ == "__main__":
-    # Exemple addition
-    programme_add = """
-    ; Addition de 7 et 4
-    mov 0x10, 7
-    mov 0x11, 4
-    call addition
-    jmp end
-
-    addition:
-    mov 0x12, 0x10
-    add 0x12, 0x11
-    ret 0x12
-
-    end:
+    programme = """
+    start:
+    ret rcx
+    jmp start
     """
-
-    # Exemple soustraction
-    programme_sub = """
-    ; Soustraction de 10 et 3
-    mov 0x20, 10
-    mov 0x21, 3
-    call soustraction
-    jmp end
-
-    soustraction:
-    mov 0x22, 0x20
-    sub 0x22, 0x21
-    ret 0x22
-
-    end:
-    """
-
     cpu = CPU()
-
-    print("=== Test Addition ===")
-    cpu.charger_programme(programme_add)
+    cpu.charger_programme(programme)
     cpu.executer()
     cpu.afficher_etat()
-    cpu.ram.afficher_etat()
-
-    print("\n=== Test Soustraction ===")
-    cpu = CPU()  # Réinitialiser CPU pour test propre
-    cpu.charger_programme(programme_sub)
-    cpu.executer()
-    cpu.afficher_etat()
-    cpu.ram.afficher_etat()
