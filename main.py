@@ -1,6 +1,7 @@
 import re
 import os
 
+
 class Memoire:
     def __init__(self, taille):
         self.memoire = [0] * taille
@@ -14,6 +15,7 @@ class Memoire:
         if not isinstance(adresse, int):
             raise ValueError(f"L'adresse doit être un entier. Adresse reçue : {adresse}")
         self.memoire[adresse] = valeur
+
 
 class CPU:
     def __init__(self):
@@ -61,6 +63,7 @@ class CPU:
 
         # Affichage de la valeur retournée dans stdout
         self.stdout.append(retour_valeur)
+        print(f"Valeur retournée : {retour_valeur}")  # Correction pour afficher immédiatement
 
         self.registres['rax'] = retour_valeur
         if self.pile:
@@ -119,8 +122,8 @@ class CPU:
             elif op == 'db':
                 self.pile.append(int(instr[1], 16))
             self.rip += 1
-            os.system('cls')
-            print(''.join(self.stdout))
+        # Supprimez l'effacement de l'écran pour conserver les sorties
+        print(''.join(map(str, self.stdout)))  # Affiche le contenu de stdout
 
     def afficher_etat(self):
         print(f"Program ended in rip pointer: {self.rip}")
@@ -128,6 +131,7 @@ class CPU:
         print("Registres :")
         for registre, valeur in self.registres.items():
             print(f"{registre}: {valeur}")
+
 
 # Exemple de programme (retourne une valeur via ret)
 programme_asm = """
