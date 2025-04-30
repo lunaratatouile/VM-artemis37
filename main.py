@@ -50,6 +50,8 @@ class CPU:
         self.stdout_renderer = PygameOutput(screen, font, (255, 255, 255), (10, 10))
         self.programme = []
         self.etiquettes = {}
+        self.debug_info = []  # Stocker les informations de débogage
+
 
     def stdout(self, data="0x0"):
         # Nettoyer l'argument pour supprimer les commentaires éventuels
@@ -84,11 +86,23 @@ class CPU:
         self.programme = [instr for instr in programme if instr[0] != 'etiquette']
         self.etiquettes = {instr[1]: i for i, instr in enumerate(programme) if instr[0] == 'etiquette'}
 
+    def afficher_etat_registres(self):
+        """
+        Affiche l'état actuel des registres.
+        """
+        print("=== État des registres ===")
+        for registre, valeur in self.registres.items():
+            print(f"{registre}: {valeur}")
+        print("==========================")
+
     def executer(self):
         while self.rip < len(self.programme):
             instr = self.programme[self.rip]
+
             op = instr[0]
             args = instr[1:]
+            self.debug_info.append(f"Instruction exécutée : {instr}")  # Ajouter au débogage
+
             if op == 'stdout':
                 # Limiter les arguments à un seul (corriger l'appel)
                 self.stdout(args[0])
@@ -104,6 +118,20 @@ class CPU:
             else:
                 print(f"Instruction inconnue : {op}")
             self.rip += 1
+        # Affichage des états
+        self.afficher_etat_registres()  # Affiche les registres après chaque instruction
+
+
+    def afficher_etat(self):
+        print(f"Program ended at RIP: {self.rip}")
+        print(f"Pile (stack) : {self.pile}")
+        print("Registres :")
+        for registre, valeur in self.registres.items():
+            print(f"{registre}: {valeur}")
+        print("\n=== Informations de débogage ===")
+        for info in self.debug_info:
+            print(info)
+
 
 if __name__ == "__main__":
     pygame.init()
@@ -128,9 +156,9 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 100   ; d
     stdout 33    ; !
-    jmp start
     """
     cpu = CPU(screen, font)
     cpu.charger_programme(programme)
     cpu.executer()
+    cpu.afficher_etat()
     pygame.quit()
