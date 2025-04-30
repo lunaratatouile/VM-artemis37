@@ -24,6 +24,8 @@ class PygameOutput:
         self.buffer = ""  # Utilisation d'une chaîne unique pour le texte
 
     def write(self, text):
+        if not isinstance(text, str):
+            raise ValueError(f"Le texte à écrire doit être une chaîne de caractères. Reçu : {text}")
         # Filtrer les caractères nuls
         text = text.replace('\x00', '')
         self.buffer += text  # Ajouter le texte à la chaîne unique
@@ -61,7 +63,9 @@ class CPU:
         else:
             retour_valeur = int(data)
 
-        # Ajouter la sortie à l'affichage Pygame
+        # Vérifier si la valeur est un caractère valide
+        if not (0 <= retour_valeur <= 0x10FFFF):
+            raise ValueError(f"Valeur Unicode invalide : {retour_valeur}")
         self.stdout_renderer.write(chr(retour_valeur))
 
     def charger_programme(self, programme_str):
@@ -71,7 +75,7 @@ class CPU:
             ligne = ligne.strip()
             if not ligne or ligne.startswith(';'):
                 continue
-            if ':' in ligne:
+            if ':' in ligne and not ligne.split(':')[1].strip():
                 etiquette = ligne.replace(':', '').strip()
                 programme.append(('etiquette', etiquette))
                 continue
@@ -93,33 +97,86 @@ class CPU:
             print(f"{registre}: {valeur}")
         print("==========================")
 
+    def mov(self, dest, src):
+        """
+        Implémente l'instruction MOV : copie la valeur de src vers dest.
+        """
+        # Si la source est un registre
+        if src in self.registres:
+            valeur = self.registres[src]
+        # Si la source est une valeur immédiate (ex: 0x10 ou 42)
+        elif isinstance(src, str) and src.startswith('0x'):
+            valeur = int(src, 16)
+        else:
+            valeur = int(src)
+    
+        # Si la destination est un registre
+        if dest in self.registres:
+            self.registres[dest] = valeur
+        # Si la destination est une adresse mémoire
+        elif dest.isdigit():
+            self.ram[int(dest)] = valeur
+        else:
+            raise ValueError(f"Destination invalide : {dest}")
+    
+
+     def capturer_touche(self):
+         """
+         Capture une touche et met à jour le registre rcx avec son code ASCII.
+         Affiche également la touche capturée.
+         A CORRIGER: LE MAPPAGE DES TOUCHES DU CLAVIER EST BUGUE
+         """
+         event = keyboard.read_event()
+         if event.event_type == keyboard.KEY_DOWN:
+             key = event.name
+             if key == 'enter':
+                 self.registres['rcx'] = ord('\n')  # Code ASCII pour Entrée
+             elif key == 'backspace':
+                 self.registres['rcx'] = ord('\b')  # Code ASCII pour Retour arrière
+             elif len(key) == 1 and 'a' <= key <= 'z':
+                 self.registres['rcx'] = ord(key)  # Code ASCII pour a-z
+             else:
+                 print(f"Touche non gérée par l'interruption systeme clavier : {key}")
+ 
+     def interruptions(self):
+         """
+         Gère les interruptions système, notamment la capture d'une touche.
+         """
+         self.capturer_touche()
+ 
     def executer(self):
         while self.rip < len(self.programme):
+            self.interruptions()
             instr = self.programme[self.rip]
 
             op = instr[0]
             args = instr[1:]
             self.debug_info.append(f"Instruction exécutée : {instr}")  # Ajouter au débogage
 
-            if op == 'stdout':
-                # Limiter les arguments à un seul (corriger l'appel)
-                self.stdout(args[0])
-            elif op == 'stdoutflush':
-                self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
-            elif op == 'jmp':
-                self.rip = self.etiquettes[args[0]]
-                continue
-            elif op == 'call':
-                self.pile.append(self.rip + 1)
-                self.rip = self.etiquettes[args[0]]
-                continue
-            elif op == 'ret':
-                self.rip = self.pile.pop() if self.pile else len(self.programme)
-            else:
-                print(f"Instruction inconnue : {op}")
+            try:
+                if op == 'stdout':
+                    self.stdout(args[0])
+                elif op == 'stdoutflush':
+                    self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
+                elif op == 'jmp':
+                    self.rip = self.etiquettes[args[0]]
+                    continue
+                elif op == 'call':
+                    self.pile.append(self.rip + 1)
+                    self.rip = self.etiquettes[args[0]]
+                    continue
+                elif op == 'mov':
+                    self.mov(*args)
+                elif op == 'ret':
+                    self.rip = self.pile.pop() if self.pile else len(self.programme)
+                else:
+                    raise ValueError(f"Instruction inconnue : {op}")
+            except Exception as e:
+                print(f"Erreur lors de l'exécution de l'instruction {instr}: {e}")
+                break
             self.rip += 1
-        # Affichage des états
-        self.afficher_etat_registres()  # Affiche les registres après chaque instruction
+
+        self.afficher_etat_registres()
 
     def afficher_etat(self):
         print(f"Program ended at RIP: {self.rip}")
@@ -152,6 +209,8 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 100   ; d
     stdout 33    ; !
+    mov rax, 0x1
+    stdout rax
 
     startvm:
     call print_hello
