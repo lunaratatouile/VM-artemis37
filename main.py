@@ -69,6 +69,10 @@ class CPU:
         # Vérifier si la valeur est un caractère valide
         if not (0 <= retour_valeur <= 0x10FFFF):
             raise ValueError(f"Valeur Unicode invalide : {retour_valeur}")
+        elif retour_valeur == 0:  # Ignorer les caractères vides ou non valides
+            print("Aucun caractère valide à afficher.")
+            return
+
         self.stdout_renderer.write(chr(retour_valeur))
 
     def charger_programme(self, programme_str):
@@ -137,9 +141,7 @@ class CPU:
                     self.registres['rcx'] = key
                 else:
                     print(f"Touche non gérée par l'interruption système clavier : {pygame.key.name(key)}")
-            else:
-                    self.registres['rcx'] = ord('')  # Code ASCII pour rien: A CORRIGER APRES COUP!!!
-        print(f"contenu de rcx: {self.registres['rcx']}")
+                return  # Sortir dès qu'une touche est détectée
 
     def interruptions(self):
         """
@@ -148,43 +150,54 @@ class CPU:
         self.capturer_touche()  # Capture les événements clavier
 
     def executer(self):
-        while self.rip < len(self.programme):
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:  # Gestion de la fermeture de la fenêtre
-                    print("Fermeture de la machine virtuelle.")
-                    return
+        log_file_path = "logs_execution.txt"
+        with open(log_file_path, "w") as log_file:
+            while self.rip < len(self.programme):
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:  # Gestion de la fermeture de la fenêtre
+                        print("Fermeture de la machine virtuelle.")
+                        return
 
-            self.interruptions()  # Gérer les interruptions
-            instr = self.programme[self.rip]
+                self.interruptions()  # Gérer les interruptions
+                instr = self.programme[self.rip]
 
-            op = instr[0]
-            args = instr[1:]
-            self.debug_info.append(f"Instruction exécutée : {instr}")  # Ajouter au débogage
+                op = instr[0]
+                args = instr[1:]
+                log_entry = f"Instruction exécutée : {instr}\n"
+                self.debug_info.append(log_entry)
 
-            try:
-                if op == 'stdout':
-                    self.stdout(args[0])
-                elif op == 'stdoutflush':
-                    self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
-                elif op == 'jmp':
-                    self.rip = self.etiquettes[args[0]]
-                    continue
-                elif op == 'call':
-                    self.pile.append(self.rip + 1)
-                    self.rip = self.etiquettes[args[0]]
-                    continue
-                elif op == 'mov':
-                    self.mov(*args)
-                elif op == 'ret':
-                    self.rip = self.pile.pop() if self.pile else len(self.programme)
-                else:
-                    raise ValueError(f"Instruction inconnue : {op}")
-            except Exception as e:
-                print(f"Erreur lors de l'exécution de l'instruction {instr}: {e}")
-                break
-            self.rip += 1
+                try:
+                    if op == 'stdout':
+                        self.stdout(args[0])
+                    elif op == 'stdoutflush':
+                        self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
+                    elif op == 'jmp':
+                        self.rip = self.etiquettes[args[0]]
+                        continue
+                    elif op == 'call':
+                        self.pile.append(self.rip + 1)
+                        self.rip = self.etiquettes[args[0]]
+                        continue
+                    elif op == 'mov':
+                        self.mov(*args)
+                    elif op == 'ret':
+                        self.rip = self.pile.pop() if self.pile else len(self.programme)
+                    else:
+                        raise ValueError(f"Instruction inconnue : {op}")
+                except Exception as e:
+                    print(f"Erreur lors de l'exécution de l'instruction {instr}: {e}")
+                    break
 
-        self.afficher_etat_registres()
+                # Enregistrer dans le fichier de logs
+                log_file.write(log_entry)
+
+                # Afficher dans la console uniquement les 10 premières instructions
+                if len(self.debug_info) <= 10:
+                    print(log_entry.strip())
+
+                self.rip += 1
+
+        print(f"\nLes instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
 
     def afficher_etat(self):
         print(f"Program ended at RIP: {self.rip}")
@@ -193,8 +206,9 @@ class CPU:
         for registre, valeur in self.registres.items():
             print(f"{registre}: {valeur}")
         print("\n=== Informations de débogage ===")
-        for info in self.debug_info:
-            print(info)
+        for info in self.debug_info[:10]:  # Affiche uniquement les 10 premières instructions
+            print(info.strip())
+        print(f"Les instructions complètes sont disponibles dans le fichier 'logs_execution.txt'.")
 
 
 if __name__ == "__main__":
