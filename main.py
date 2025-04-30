@@ -33,12 +33,21 @@ class PygameOutput:
 
     def render(self):
         self.screen.fill((0, 0, 0))  # Effacer l'écran
-        y_offset = self.pos[1]
+        x, y = self.pos
         for line in self.buffer:
-            rendered_line = self.font.render(line.strip(), True, self.color)
-            self.screen.blit(rendered_line, (self.pos[0], y_offset))
-            y_offset += rendered_line.get_height()
+            for char in line:
+                if char == '\n':
+                    x = self.pos[0]  # Retour à la ligne, on revient au début
+                    y += self.font.get_height()
+                else:
+                    rendered_char = self.font.render(char, True, self.color)
+                    self.screen.blit(rendered_char, (x, y))
+                    x += rendered_char.get_width()
+            # Si tu veux que chaque élément de buffer commence sur une nouvelle ligne :
+            x = self.pos[0]
+            y += self.font.get_height()
         pygame.display.flip()
+
 
 class CPU:
     def __init__(self, screen, font):
@@ -156,6 +165,7 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 100   ; d
     stdout 33    ; !
+    jmp start
     """
     cpu = CPU(screen, font)
     cpu.charger_programme(programme)
