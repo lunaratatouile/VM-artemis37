@@ -33,7 +33,7 @@ class CPU:
             'rcx': 0,  # Registre pour stocker le code ASCII du caractère
         }
         self.rip = 0  # Pointeur d'instruction (entier)
-        self.stdout = []  # Capturer les sorties
+        self.buffer_stdout = []  # Capturer les sorties
         self.debug_info = []  # Stocker les informations de débogage
 
     def ret(self, data="0x0"):
@@ -68,7 +68,7 @@ class CPU:
         else:
             retour_valeur = int(data)
 
-        self.stdout.append(retour_valeur)
+        self.buffer_stdout.append(retour_valeur)
         if self.pile:
             self.rip = self.pile.pop()
         else:
@@ -140,7 +140,7 @@ class CPU:
         Affiche la sortie standard accumulée.
         """
         os.system('cls')
-        print(''.join(chr(char) for char in self.stdout))
+        print(''.join(chr(char) for char in self.buffer_stdout))
 
     def executer(self):
         while self.rip < len(self.programme):
