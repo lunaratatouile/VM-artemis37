@@ -49,8 +49,26 @@ class CPU:
         else:
             retour_valeur = int(data)
 
-        self.stdout.append(retour_valeur)
         self.registres['rax'] = retour_valeur
+        if self.pile:
+            self.rip = self.pile.pop()
+        else:
+            self.rip = len(self.programme)
+            
+    def stdout(self, data="0x0"):
+        """
+        Gère l'instruction 'ret'.
+        Si 'data' est un registre valide, utilise sa valeur.
+        Sinon, essaie de convertir directement.
+        """
+        if data in self.registres:
+            retour_valeur = self.registres[data]
+        elif isinstance(data, str) and data.startswith("0x"):
+            retour_valeur = int(data, 16)
+        else:
+            retour_valeur = int(data)
+
+        self.stdout.append(retour_valeur)
         if self.pile:
             self.rip = self.pile.pop()
         else:
@@ -137,6 +155,8 @@ class CPU:
             # Exécution des instructions
             if op == 'ret':
                 self.ret(*instr[1:])
+            if op == 'stdout':
+                self.stdout(*instr[1:])
             elif op == 'jmp':
                 self.rip = self.etiquettes[instr[1]]
                 continue
@@ -173,9 +193,8 @@ if __name__ == "__main__":
     programme = """
     start:
     call capture_input
-
     capture_input:
-    ret rcx
+    stdout rcx
     jmp start
     """
     cpu = CPU()
