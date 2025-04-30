@@ -1,6 +1,6 @@
 import pygame
 import re
-
+import os
 
 class Memoire:
     def __init__(self, taille):
@@ -150,11 +150,11 @@ class CPU:
         self.capturer_touche()  # Capture les événements clavier
 
     def executer(self):
-        log_file_path = "logs_execution.txt"
+        log_file_path = os.path.join(os.path.dirname(__file__), "logs_execution.txt")
         with open(log_file_path, "w") as log_file:
             while self.rip < len(self.programme):
                 for event in pygame.event.get():
-                    if event.type == pygame.QUIT:  # Gestion de la fermeture de la fenêtre
+                    if event.type == pygame.QUIT:
                         print("Fermeture de la machine virtuelle.")
                         return
 
