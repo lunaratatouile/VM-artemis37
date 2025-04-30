@@ -1,6 +1,7 @@
 import pygame
 import re
 
+
 class Memoire:
     def __init__(self, taille):
         self.memoire = [0] * taille
@@ -14,6 +15,7 @@ class Memoire:
         if not isinstance(adresse, int):
             raise ValueError(f"L'adresse doit être un entier. Adresse reçue : {adresse}")
         self.memoire[adresse] = valeur
+
 
 class PygameOutput:
     def __init__(self, screen, font, color, pos):
@@ -40,6 +42,7 @@ class PygameOutput:
             self.screen.blit(rendered_char, (x, y))
             x += rendered_char.get_width()
         pygame.display.flip()
+
 
 class CPU:
     def __init__(self, screen, font):
@@ -109,7 +112,7 @@ class CPU:
             valeur = int(src, 16)
         else:
             valeur = int(src)
-    
+
         # Si la destination est un registre
         if dest in self.registres:
             self.registres[dest] = valeur
@@ -118,35 +121,37 @@ class CPU:
             self.ram[int(dest)] = valeur
         else:
             raise ValueError(f"Destination invalide : {dest}")
-    
 
-     def capturer_touche(self):
-         """
-         Capture une touche et met à jour le registre rcx avec son code ASCII.
-         Affiche également la touche capturée.
-         A CORRIGER: LE MAPPAGE DES TOUCHES DU CLAVIER EST BUGUE
-         """
-         event = keyboard.read_event()
-         if event.event_type == keyboard.KEY_DOWN:
-             key = event.name
-             if key == 'enter':
-                 self.registres['rcx'] = ord('\n')  # Code ASCII pour Entrée
-             elif key == 'backspace':
-                 self.registres['rcx'] = ord('\b')  # Code ASCII pour Retour arrière
-             elif len(key) == 1 and 'a' <= key <= 'z':
-                 self.registres['rcx'] = ord(key)  # Code ASCII pour a-z
-             else:
-                 print(f"Touche non gérée par l'interruption systeme clavier : {key}")
- 
-     def interruptions(self):
-         """
-         Gère les interruptions système, notamment la capture d'une touche.
-         """
-         self.capturer_touche()
- 
+    def capturer_touche(self):
+        """
+        Capture une touche et met à jour le registre rcx avec son code ASCII.
+        """
+        for event in pygame.event.get():  # Traiter les événements pygame
+            if event.type == pygame.KEYDOWN:
+                key = event.key
+                if key == pygame.K_RETURN:  # Touche 'Entrée'
+                    self.registres['rcx'] = ord('\n')  # Code ASCII pour Entrée
+                elif key == pygame.K_BACKSPACE:  # Touche 'Retour arrière'
+                    self.registres['rcx'] = ord('\b')  # Code ASCII pour Retour arrière
+                elif pygame.K_a <= key <= pygame.K_z:  # Lettres de a à z
+                    self.registres['rcx'] = key
+                else:
+                    print(f"Touche non gérée par l'interruption système clavier : {pygame.key.name(key)}")
+
+    def interruptions(self):
+        """
+        Gère les interruptions système, notamment la capture d'une touche.
+        """
+        self.capturer_touche()  # Capture les événements clavier
+
     def executer(self):
         while self.rip < len(self.programme):
-            self.interruptions()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:  # Gestion de la fermeture de la fenêtre
+                    print("Fermeture de la machine virtuelle.")
+                    return
+
+            self.interruptions()  # Gérer les interruptions
             instr = self.programme[self.rip]
 
             op = instr[0]
@@ -187,6 +192,7 @@ class CPU:
         print("\n=== Informations de débogage ===")
         for info in self.debug_info:
             print(info)
+
 
 if __name__ == "__main__":
     pygame.init()
