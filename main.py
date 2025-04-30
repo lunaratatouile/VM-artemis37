@@ -21,34 +21,23 @@ class PygameOutput:
         self.font = font
         self.color = color
         self.pos = pos
-        self.buffer = []
+        self.buffer = ""  # Utilisation d'une chaîne unique pour le texte
 
     def write(self, text):
         # Filtrer les caractères nuls
         text = text.replace('\x00', '')
-        self.buffer.append(text)
-        if len(self.buffer) > 20:  # Limiter l'affichage à 20 lignes
-            self.buffer.pop(0)
+        self.buffer += text  # Ajouter le texte à la chaîne unique
         self.render()
 
     def render(self):
-        self.screen.fill((0, 0, 0))  # Clear the screen
         x, y = self.pos
-        for line in self.buffer:
-            for char in line:
-                if char == '\n':
-                    x = self.pos[0]  # Move to the start of the next line
-                    y += self.font.get_height()
-                else:
-                    rendered_char = self.font.render(char, True, self.color)
-                    self.screen.blit(rendered_char, (x, y))
-                    x += rendered_char.get_width()
-            # Only move to a new line if the current line ends with '\n'
-            if line.endswith('\n'):
-                x = self.pos[0]
-                y += self.font.get_height()
+        self.screen.fill((0, 0, 0))  # Efface l'écran une seule fois
+        # Afficher tout le texte sur une seule ligne
+        for char in self.buffer:
+            rendered_char = self.font.render(char, True, self.color)
+            self.screen.blit(rendered_char, (x, y))
+            x += rendered_char.get_width()
         pygame.display.flip()
-
 
 class CPU:
     def __init__(self, screen, font):
@@ -61,7 +50,6 @@ class CPU:
         self.programme = []
         self.etiquettes = {}
         self.debug_info = []  # Stocker les informations de débogage
-
 
     def stdout(self, data="0x0"):
         # Nettoyer l'argument pour supprimer les commentaires éventuels
@@ -117,7 +105,7 @@ class CPU:
                 # Limiter les arguments à un seul (corriger l'appel)
                 self.stdout(args[0])
             elif op == 'stdoutflush':
-                self.stdout_renderer = []
+                self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
             elif op == 'jmp':
                 self.rip = self.etiquettes[args[0]]
                 continue
@@ -133,7 +121,6 @@ class CPU:
         # Affichage des états
         self.afficher_etat_registres()  # Affiche les registres après chaque instruction
 
-
     def afficher_etat(self):
         print(f"Program ended at RIP: {self.rip}")
         print(f"Pile (stack) : {self.pile}")
@@ -144,7 +131,6 @@ class CPU:
         for info in self.debug_info:
             print(info)
 
-
 if __name__ == "__main__":
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
@@ -154,6 +140,7 @@ if __name__ == "__main__":
     programme = """
     start:
     call print_hello
+    
     print_hello:
     stdoutflush
     stdout 72    ; H
@@ -161,7 +148,6 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 108   ; l
     stdout 111   ; o
-    stdout 44    ; ,
     stdout 32    ; (espace)
     stdout 87    ; W
     stdout 111   ; o
@@ -169,7 +155,8 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 100   ; d
     stdout 33    ; !
-    stdout 10    ; \n
+    
+    end:
     jmp start
     """
     cpu = CPU(screen, font)
