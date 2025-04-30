@@ -138,9 +138,6 @@ if __name__ == "__main__":
     font = pygame.font.Font(None, 24)
 
     programme = """
-    start:
-    call print_hello
-    
     print_hello:
     stdoutflush
     stdout 72    ; H
@@ -155,9 +152,12 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 100   ; d
     stdout 33    ; !
-    
+
+    startvm:
+    call print_hello
+
     end:
-    jmp start
+    ret
     """
     cpu = CPU(screen, font)
     cpu.charger_programme(programme)
