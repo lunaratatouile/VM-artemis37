@@ -215,8 +215,8 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 100   ; d
     stdout 33    ; !
-    mov rax, 0x1
-    stdout rax
+    mov rcx, 0x1
+    stdout rcx
 
     startvm:
     call print_hello
