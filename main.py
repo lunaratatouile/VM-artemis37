@@ -88,29 +88,28 @@ class CPU:
         """
         Capture une touche et met à jour le registre rcx avec son code ASCII.
         Affiche également la touche capturée.
+        A CORRIGER: LE MAPPAGE DES TOUCHES DU CLAVIER EST BUGUE
         """
-        print("Appuyez sur une touche (a-z, Entrée ou Retour arrière)...")
-        while True:
-            event = keyboard.read_event()
-            if event.event_type == keyboard.KEY_DOWN:
-                key = event.name
-                if key == 'enter':
-                    self.registres['rcx'] = ord('\n')  # Code ASCII pour Entrée
-                    break
-                elif key == 'backspace':
-                    self.registres['rcx'] = ord('\b')  # Code ASCII pour Retour arrière
-                    break
-                elif len(key) == 1 and 'a' <= key <= 'z':
-                    self.registres['rcx'] = ord(key)  # Code ASCII pour a-z
-                    break
-                else:
-                    print(f"Touche non gérée par l'interruption systeme clavier : {key}")
+        event = keyboard.read_event()
+        if event.event_type == keyboard.KEY_DOWN:
+            key = event.name
+            if key == 'enter':
+                self.registres['rcx'] = ord('\n')  # Code ASCII pour Entrée
+            elif key == 'backspace':
+                self.registres['rcx'] = ord('\b')  # Code ASCII pour Retour arrière
+            elif len(key) == 1 and 'a' <= key <= 'z':
+                self.registres['rcx'] = ord(key)  # Code ASCII pour a-z
+            else:
+                print(f"Touche non gérée par l'interruption systeme clavier : {key}")
 
     def interruptions(self):
         self.capturer_touche()
 
     def executer(self):
         while self.rip < len(self.programme):
+
+            self.interruptions()
+
             instr = self.programme[self.rip]
             op = instr[0]
             self.debug_info.append(f"Instruction exécutée : {instr}")  # Ajouter au débogage
@@ -128,7 +127,7 @@ class CPU:
                 print(f"Instruction inconnue : {op}")
 
             self.rip += 1
-            self.interruptions()
+            print(''.join(chr(char) for char in self.stdout))
 
     def afficher_etat(self):
         print(f"Program ended at RIP: {self.rip}")
@@ -146,10 +145,10 @@ if __name__ == "__main__":
     programme = """
     start:
     call capture_input
-    jmp start
 
     capture_input:
     ret rcx
+    jmp start
     """
     cpu = CPU()
     cpu.charger_programme(programme)
