@@ -137,6 +137,8 @@ class CPU:
                     self.registres['rcx'] = key
                 else:
                     print(f"Touche non gérée par l'interruption système clavier : {pygame.key.name(key)}")
+            else:
+                    self.registres['rcx'] = ord('')  # Code ASCII pour rien: A CORRIGER APRES COUP!!!
 
     def interruptions(self):
         """
