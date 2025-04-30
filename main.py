@@ -32,20 +32,21 @@ class PygameOutput:
         self.render()
 
     def render(self):
-        self.screen.fill((0, 0, 0))  # Effacer l'écran
+        self.screen.fill((0, 0, 0))  # Clear the screen
         x, y = self.pos
         for line in self.buffer:
             for char in line:
                 if char == '\n':
-                    x = self.pos[0]  # Retour à la ligne, on revient au début
+                    x = self.pos[0]  # Move to the start of the next line
                     y += self.font.get_height()
                 else:
                     rendered_char = self.font.render(char, True, self.color)
                     self.screen.blit(rendered_char, (x, y))
                     x += rendered_char.get_width()
-            # Si tu veux que chaque élément de buffer commence sur une nouvelle ligne :
-            x = self.pos[0]
-            y += self.font.get_height()
+            # Only move to a new line if the current line ends with '\n'
+            if line.endswith('\n'):
+                x = self.pos[0]
+                y += self.font.get_height()
         pygame.display.flip()
 
 
@@ -115,6 +116,8 @@ class CPU:
             if op == 'stdout':
                 # Limiter les arguments à un seul (corriger l'appel)
                 self.stdout(args[0])
+            elif op == 'stdoutflush':
+                self.stdout_renderer = []
             elif op == 'jmp':
                 self.rip = self.etiquettes[args[0]]
                 continue
@@ -152,6 +155,7 @@ if __name__ == "__main__":
     start:
     call print_hello
     print_hello:
+    stdoutflush
     stdout 72    ; H
     stdout 101   ; e
     stdout 108   ; l
@@ -165,6 +169,7 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 100   ; d
     stdout 33    ; !
+    stdout 10    ; \n
     jmp start
     """
     cpu = CPU(screen, font)
