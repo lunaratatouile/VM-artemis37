@@ -103,17 +103,38 @@ class CPU:
                 print(f"Touche non gérée par l'interruption systeme clavier : {key}")
 
     def interruptions(self):
+        """
+        Gère les interruptions système, notamment la capture d'une touche.
+        """
         self.capturer_touche()
+
+    def afficher_etat_registres(self):
+        """
+        Affiche l'état actuel des registres.
+        """
+        print("=== État des registres ===")
+        for registre, valeur in self.registres.items():
+            print(f"{registre}: {valeur}")
+        print("==========================")
+
+    def afficher_stdout(self):
+        """
+        Affiche la sortie standard accumulée.
+        """
+        os.system('cls')
+        print(''.join(chr(char) for char in self.stdout))
 
     def executer(self):
         while self.rip < len(self.programme):
-
+            # Interruption système pour capturer les touches
             self.interruptions()
 
+            # Récupération de l'instruction actuelle
             instr = self.programme[self.rip]
             op = instr[0]
             self.debug_info.append(f"Instruction exécutée : {instr}")  # Ajouter au débogage
 
+            # Exécution des instructions
             if op == 'ret':
                 self.ret(*instr[1:])
             elif op == 'jmp':
@@ -126,8 +147,15 @@ class CPU:
             else:
                 print(f"Instruction inconnue : {op}")
 
+            # Avancement de l'instruction
             self.rip += 1
-            print(''.join(chr(char) for char in self.stdout))
+            self.afficher_stdout()
+
+        # Affichage des états
+        self.afficher_etat_registres()  # Affiche les registres après chaque instruction
+        print("=== Sortie standard ===")
+        self.afficher_stdout()         # Affiche la sortie standard accumulée
+        print("=======================")
 
     def afficher_etat(self):
         print(f"Program ended at RIP: {self.rip}")
