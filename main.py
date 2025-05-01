@@ -1,6 +1,8 @@
 import pygame
 import re
 import os
+import pyautogui
+import keyboard
 
 class Formatage:
     warning = "[!] "
@@ -138,27 +140,15 @@ class CPU:
             self.ram[int(dest)] = valeur
         else:
             raise ValueError(f"Destination invalide : {dest}")
-
+    
     def capturer_touche(self):
-        """
-        Vérifie s'il y a un événement clavier en cours sans bloquer l'exécution.
-        Capture une touche pressée et retourne son code ASCII ou son identifiant Pygame.
-        """
-        for event in pygame.event.get():  # Récupère tous les événements en cours
-            if event.type == pygame.KEYDOWN:  # Vérifie seulement les pressions de touche
-                key = event.key
-                if key == pygame.K_RETURN:  # Touche 'Entrée'
-                    return ord('\n')  # Code ASCII pour Entrée
-                elif key == pygame.K_BACKSPACE:  # Touche 'Retour arrière'
-                    return ord('\b')  # Code ASCII pour Retour arrière
-                elif pygame.K_a <= key <= pygame.K_z:  # Lettres de a à z
-                    return key
-                elif pygame.K_0 <= key <= pygame.K_9:  # Chiffres de 0 à 9
-                    return key
-                else:
-                    print(f.info + f"Touche non gérée : {pygame.key.name(key)}")
-                    return 0  # Valeur par défaut pour les touches non gérées
-        return 0  # Aucun événement détecté
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN: return ord('\n')
+                elif event.key == pygame.K_BACKSPACE: return ord('\b')
+                elif pygame.K_a <= event.key <= pygame.K_z: return event.key
+                elif pygame.K_0 <= event.key <= pygame.K_9: return event.key
+        return 0
 
     def interruptions(self):
         """
@@ -168,53 +158,54 @@ class CPU:
 
     def executer(self):
         log_file_path = os.path.join(os.path.dirname(__file__), "logs_execution.txt")
+        log_entry = []
+        while self.rip < len(self.programme):
+            self.interruptions()  # Gérer les interruptions
+
+            if any(event.type == pygame.QUIT for event in pygame.event.get()):
+                print(f.success + "Fermeture de la machine virtuelle.")
+                return
+
+            instr = self.programme[self.rip]
+
+            op = instr[0]
+            args = instr[1:]
+            log_entry.append(f"Instruction exécutée : {instr}\n")
+            self.debug_info.append(log_entry[-1])
+        
+            try:
+                if op == 'stdout':
+                    self.stdout(args[0])
+                elif op == 'stdoutflush':
+                    self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
+                elif op == 'jmp':
+                    self.rip = self.etiquettes[args[0]]
+                    continue
+                elif op == 'call':
+                    self.pile.append(self.rip + 1)
+                    self.rip = self.etiquettes[args[0]]
+                    continue
+                elif op == 'mov':
+                    self.mov(*args)
+                elif op == 'ret':
+                    self.rip = self.pile.pop() if self.pile else len(self.programme)
+                else:
+                    raise ValueError(f"Instruction inconnue : {op}")
+            except Exception as e:
+                print(f.error + f"Erreur lors de l'exécution de l'instruction {instr}: {e}")
+                break
+            self.rip += 1
+            # Limiter à 60 FPS
+            clock.tick(60)
+
         with open(log_file_path, "w") as log_file:
-            while self.rip < len(self.programme):
-                for event in pygame.event.get():
-                    if event.type == pygame.QUIT:
-                        print(f.success + "Fermeture de la machine virtuelle.")
-                        return
+            # Enregistrer dans le fichier de logs
+            log_file.write(log_entry)
 
-                self.interruptions()  # Gérer les interruptions
-                instr = self.programme[self.rip]
+            # Afficher dans la console uniquement les 10 premières instructions
+            if len(self.debug_info) <= 10:
+                print(f.success + log_entry.strip())
 
-                op = instr[0]
-                args = instr[1:]
-                log_entry = f"Instruction exécutée : {instr}\n"
-                self.debug_info.append(log_entry)
-
-                try:
-                    if op == 'stdout':
-                        self.stdout(args[0])
-                    elif op == 'stdoutflush':
-                        self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
-                    elif op == 'jmp':
-                        self.rip = self.etiquettes[args[0]]
-                        continue
-                    elif op == 'call':
-                        self.pile.append(self.rip + 1)
-                        self.rip = self.etiquettes[args[0]]
-                        continue
-                    elif op == 'mov':
-                        self.mov(*args)
-                    elif op == 'ret':
-                        self.rip = self.pile.pop() if self.pile else len(self.programme)
-                    else:
-                        raise ValueError(f"Instruction inconnue : {op}")
-                except Exception as e:
-                    print(f.error + f"Erreur lors de l'exécution de l'instruction {instr}: {e}")
-                    break
-
-                # Enregistrer dans le fichier de logs
-                log_file.write(log_entry)
-
-                # Afficher dans la console uniquement les 10 premières instructions
-                if len(self.debug_info) <= 10:
-                    print(f.success + log_entry.strip())
-
-                self.rip += 1
-                # Limiter à 60 FPS
-                clock.tick(60)
 
         print(f.info + f"\nLes instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
 
