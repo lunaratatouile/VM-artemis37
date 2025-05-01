@@ -83,7 +83,7 @@ class CPU:
         if not (0 <= retour_valeur <= 0x10FFFF):
             raise ValueError(f.error + f"Valeur Unicode invalide : {retour_valeur}")
         elif retour_valeur == 0:  # Ignorer les caractères vides ou non valides
-            print(f.warning + "Aucun caractère valide à afficher.")
+            print(f.warning + f"Aucun caractère valide à afficher. (code ascii: {retour_valeur})")
             return
 
         self.stdout_renderer.write(chr(retour_valeur))
@@ -147,20 +147,20 @@ class CPU:
             if event.type == pygame.KEYDOWN:
                 key = event.key
                 if key == pygame.K_RETURN:  # Touche 'Entrée'
-                    self.registres['rcx'] = ord('\n')  # Code ASCII pour Entrée
+                    return ord('\n')  # Code ASCII pour Entrée
                 elif key == pygame.K_BACKSPACE:  # Touche 'Retour arrière'
-                    self.registres['rcx'] = ord('\b')  # Code ASCII pour Retour arrière
+                    return ord('\b')  # Code ASCII pour Retour arrière
                 elif pygame.K_a <= key <= pygame.K_z:  # Lettres de a à z
-                    self.registres['rcx'] = key
+                    return key
                 else:
                     print(f.info + f"Touche non gérée par l'interruption système clavier : {pygame.key.name(key)}")
-                return  # Sortir dès qu'une touche est détectée
+        return 0
 
     def interruptions(self):
         """
         Gère les interruptions système, notamment la capture d'une touche.
         """
-        self.capturer_touche()  # Capture les événements clavier
+        self.registres['clavier'] = self.capturer_touche()  # Capture les événements clavier
 
     def executer(self):
         log_file_path = os.path.join(os.path.dirname(__file__), "logs_execution.txt")
@@ -213,7 +213,7 @@ class CPU:
         print(f.info + f"\nLes instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
 
     def afficher_etat(self):
-        print(f.info + f"Program ended at RIP: {self.rip}")
+        print(f.info + f"Program ended at RIP: {self.rip} ( instruction {self.programme[self.rip]}")
         print("\n=== Registres : ===")
         for registre, valeur in self.registres.items():
             print(f.success + f"{registre}: {valeur}")
