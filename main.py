@@ -53,7 +53,7 @@ class CPU:
     def __init__(self, screen, font):
         self.disk = Memoire(4096)
         self.ram = Memoire(4096)
-        self.registres = {'rax': 0, 'rcx': 0}
+        self.registres = {'clavier': 0}
         self.rip = 0
         self.pile = []
         self.stdout_renderer = PygameOutput(screen, font, (255, 255, 255), (10, 10))
@@ -64,8 +64,8 @@ class CPU:
     def stdout(self, data="0x0"):
         # Nettoyer l'argument pour supprimer les commentaires éventuels
         data = data.split(';')[0].strip()
-        if data in self.registres:
-            retour_valeur = self.registres[data]
+        if isinstance(data, str) and data.startswith('0r'):
+            retour_valeur = self.registres[data[2:]]
         elif isinstance(data, str) and data.startswith('0x'):
             retour_valeur = int(data, 16)
         else:
@@ -114,8 +114,8 @@ class CPU:
         Implémente l'instruction MOV : copie la valeur de src vers dest.
         """
         # Si la source est un registre
-        if src in self.registres:
-            valeur = self.registres[src]
+        if isinstance(src, str) and src.startswith('0r'):
+            valeur = self.registres[src[2:]]
         # Si la source est une valeur immédiate (ex: 0x10 ou 42)
         elif isinstance(src, str) and src.startswith('0x'):
             valeur = int(src, 16)
@@ -237,8 +237,7 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 100   ; d
     stdout 33    ; !
-    mov rcx, 0x1
-    stdout rcx
+    stdout 0rclavier
 
     startvm:
     call print_hello
