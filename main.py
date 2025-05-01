@@ -141,10 +141,11 @@ class CPU:
 
     def capturer_touche(self):
         """
-        Capture une touche et met à jour le registre rcx avec son code ASCII.
+        Vérifie s'il y a un événement clavier en cours sans bloquer l'exécution.
+        Capture une touche pressée et retourne son code ASCII ou son identifiant Pygame.
         """
-        for event in pygame.event.get():  # Traiter les événements pygame
-            if event.type == pygame.KEYDOWN:
+        for event in pygame.event.get():  # Récupère tous les événements en cours
+            if event.type == pygame.KEYDOWN:  # Vérifie seulement les pressions de touche
                 key = event.key
                 if key == pygame.K_RETURN:  # Touche 'Entrée'
                     return ord('\n')  # Code ASCII pour Entrée
@@ -152,9 +153,12 @@ class CPU:
                     return ord('\b')  # Code ASCII pour Retour arrière
                 elif pygame.K_a <= key <= pygame.K_z:  # Lettres de a à z
                     return key
+                elif pygame.K_0 <= key <= pygame.K_9:  # Chiffres de 0 à 9
+                    return key
                 else:
-                    print(f.info + f"Touche non gérée par l'interruption système clavier : {pygame.key.name(key)}")
-        return 0
+                    print(f.info + f"Touche non gérée : {pygame.key.name(key)}")
+                    return 0  # Valeur par défaut pour les touches non gérées
+        return 0  # Aucun événement détecté
 
     def interruptions(self):
         """
@@ -209,6 +213,8 @@ class CPU:
                     print(f.success + log_entry.strip())
 
                 self.rip += 1
+                # Limiter à 60 FPS
+                clock.tick(60)
 
         print(f.info + f"\nLes instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
 
@@ -227,6 +233,7 @@ if __name__ == "__main__":
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
     pygame.display.set_caption("Machine Virtuelle avec Pygame")
+    clock = pygame.time.Clock()
     font = pygame.font.Font(None, 24)
 
     programme = """
