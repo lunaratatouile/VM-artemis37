@@ -2,22 +2,30 @@ import pygame
 import re
 import os
 
+class Formatage:
+    warning = "[!] "
+    error = "[X] "
+    success = "[+] "
+    info = "[i] "
+
+f = Formatage
+
 class Memoire:
     def __init__(self, taille):
         self.memoire = [0] * taille
 
     def __getitem__(self, adresse):
         if not isinstance(adresse, int):
-            raise ValueError(f"L'adresse doit être un entier. Adresse reçue : {adresse}")
+            raise ValueError(f.error + f"L'adresse doit être un entier. Adresse reçue : {adresse}")
         if not 0 <= adresse < len(self.memoire):
-            raise IndexError(f"Adresse hors des limites : {adresse}")
+            raise IndexError(f.error + f"Adresse hors des limites : {adresse}")
         return self.memoire[adresse]
 
     def __setitem__(self, adresse, valeur):
         if not isinstance(adresse, int):
-            raise ValueError(f"L'adresse doit être un entier. Adresse reçue : {adresse}")
+            raise ValueError(f.error + f"L'adresse doit être un entier. Adresse reçue : {adresse}")
         if not 0 <= adresse < len(self.memoire):
-            raise IndexError(f"Adresse hors des limites : {adresse}")
+            raise IndexError(f.error + f"Adresse hors des limites : {adresse}")
         self.memoire[adresse] = valeur
 
 
@@ -32,7 +40,7 @@ class PygameOutput:
 
     def write(self, text):
         if not isinstance(text, str):
-            raise ValueError(f"Le texte à écrire doit être une chaîne de caractères. Reçu : {text}")
+            raise ValueError(f.error + f"Le texte à écrire doit être une chaîne de caractères. Reçu : {text}")
         # Filtrer les caractères nuls
         text = text.replace('\x00', '')
         self.buffer += text  # Ajouter le texte à la chaîne unique
@@ -73,9 +81,9 @@ class CPU:
 
         # Vérifier si la valeur est un caractère valide
         if not (0 <= retour_valeur <= 0x10FFFF):
-            raise ValueError(f"Valeur Unicode invalide : {retour_valeur}")
+            raise ValueError(f.error + f"Valeur Unicode invalide : {retour_valeur}")
         elif retour_valeur == 0:  # Ignorer les caractères vides ou non valides
-            print("Aucun caractère valide à afficher.")
+            print(f.warning + "Aucun caractère valide à afficher.")
             return
 
         self.stdout_renderer.write(chr(retour_valeur))
@@ -106,7 +114,7 @@ class CPU:
         """
         print("=== État des registres ===")
         for registre, valeur in self.registres.items():
-            print(f"{registre}: {valeur}")
+            print(f.success + f"{registre}: {valeur}")
         print("==========================")
 
     def mov(self, dest, src):
@@ -145,7 +153,7 @@ class CPU:
                 elif pygame.K_a <= key <= pygame.K_z:  # Lettres de a à z
                     self.registres['rcx'] = key
                 else:
-                    print(f"Touche non gérée par l'interruption système clavier : {pygame.key.name(key)}")
+                    print(f.info + f"Touche non gérée par l'interruption système clavier : {pygame.key.name(key)}")
                 return  # Sortir dès qu'une touche est détectée
 
     def interruptions(self):
@@ -160,7 +168,7 @@ class CPU:
             while self.rip < len(self.programme):
                 for event in pygame.event.get():
                     if event.type == pygame.QUIT:
-                        print("Fermeture de la machine virtuelle.")
+                        print(f.success + "Fermeture de la machine virtuelle.")
                         return
 
                 self.interruptions()  # Gérer les interruptions
@@ -190,7 +198,7 @@ class CPU:
                     else:
                         raise ValueError(f"Instruction inconnue : {op}")
                 except Exception as e:
-                    print(f"Erreur lors de l'exécution de l'instruction {instr}: {e}")
+                    print(f.error + f"Erreur lors de l'exécution de l'instruction {instr}: {e}")
                     break
 
                 # Enregistrer dans le fichier de logs
@@ -198,22 +206,21 @@ class CPU:
 
                 # Afficher dans la console uniquement les 10 premières instructions
                 if len(self.debug_info) <= 10:
-                    print(log_entry.strip())
+                    print(f.success + log_entry.strip())
 
                 self.rip += 1
 
-        print(f"\nLes instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
+        print(f.info + f"\nLes instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
 
     def afficher_etat(self):
-        print(f"Program ended at RIP: {self.rip}")
-        print(f"Pile (stack) : {self.pile}")
-        print("Registres :")
+        print(f.info + f"Program ended at RIP: {self.rip}")
+        print("\n=== Registres : ===")
         for registre, valeur in self.registres.items():
-            print(f"{registre}: {valeur}")
+            print(f.success + f"{registre}: {valeur}")
         print("\n=== Informations de débogage ===")
         for info in self.debug_info[:10]:  # Affiche uniquement les 10 premières instructions
-            print(info.strip())
-        print(f"Les instructions complètes sont disponibles dans le fichier 'logs_execution.txt'.")
+            print(f.success + info.strip())
+        print(f.info + f"Les instructions complètes sont disponibles dans le fichier 'logs_execution.txt'.")
 
 
 if __name__ == "__main__":
