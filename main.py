@@ -9,12 +9,17 @@ class Memoire:
     def __getitem__(self, adresse):
         if not isinstance(adresse, int):
             raise ValueError(f"L'adresse doit être un entier. Adresse reçue : {adresse}")
+        if not 0 <= adresse < len(self.memoire):
+            raise IndexError(f"Adresse hors des limites : {adresse}")
         return self.memoire[adresse]
 
     def __setitem__(self, adresse, valeur):
         if not isinstance(adresse, int):
             raise ValueError(f"L'adresse doit être un entier. Adresse reçue : {adresse}")
+        if not 0 <= adresse < len(self.memoire):
+            raise IndexError(f"Adresse hors des limites : {adresse}")
         self.memoire[adresse] = valeur
+
 
 
 class PygameOutput:
