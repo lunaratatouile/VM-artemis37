@@ -53,6 +53,7 @@ class CodeEditor:
             "instruction": "blue",  # Instructions comme 'mov', 'call', etc.
             "address": "green",     # Adresses mémoire comme '0x10'
             "number": "red",        # Nombres comme '5'
+            "string": "orange",        # strings
             "function": "purple"    # Noms de fonctions comme 'nomdefonction:'
         }
 
@@ -101,6 +102,8 @@ class CodeEditor:
             "instruction": r"\b(mov|jmp|call|ret|xor)\b",  # Instructions
             "address": r"\b0x[0-9a-fA-F]+\b",             # Adresses mémoire
             "number": r"\b\d+\b",                         # Nombres (entiers)
+            "string": r"""(['"])(?:(?=(\\?))\2.)*?\1"""
+,                         # strings
             "function": r"\b\w+:\b"                       # Noms de fonctions suivis de ':'
         }
 
