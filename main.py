@@ -1,7 +1,8 @@
 import pygame
 import re
 import os
-import threading
+import pyautogui
+import keyboard
 
 class Formatage:
     warning = "[!] "
@@ -29,6 +30,8 @@ class Memoire:
             raise IndexError(f.error + f"Adresse hors des limites : {adresse}")
         self.memoire[adresse] = valeur
 
+
+
 class PygameOutput:
     def __init__(self, screen, font, color, pos):
         self.screen = screen
@@ -55,46 +58,9 @@ class PygameOutput:
             x += rendered_char.get_width()
         pygame.display.flip()
 
-class ClavierManager:
-    def __init__(self):
-        self._dernier_code_touche = 0
-        self._lock = threading.Lock()
-        self._stop_event = threading.Event()
-        self._thread = None
-
-    def demarrer(self):
-        self._thread = threading.Thread(target=self._boucle_clavier, daemon=True)
-        self._thread.start()
-
-    def arreter(self):
-        self._stop_event.set()
-        if self._thread:
-            self._thread.join()
-
-    def _boucle_clavier(self):
-        while not self._stop_event.is_set():
-            for event in pygame.event.get():
-                if event.type == pygame.KEYDOWN:
-                    code = 0
-                    if event.key == pygame.K_RETURN:
-                        code = ord('\n')
-                    elif event.key == pygame.K_BACKSPACE:
-                        code = ord('\b')
-                    elif pygame.K_SPACE <= event.key <= pygame.K_z:
-                        code = event.key
-                    if code:
-                        with self._lock:
-                            self._dernier_code_touche = code
-            pygame.time.wait(100)
-
-    def lire_touche(self):
-        with self._lock:
-            code = self._dernier_code_touche
-            self._dernier_code_touche = 0
-        return code
 
 class CPU:
-    def __init__(self, screen, font, clavier_manager):
+    def __init__(self, screen, font):
         self.disk = Memoire(4096)
         self.ram = Memoire(4096)
         self.registres = {'clavier': 0}
@@ -104,7 +70,6 @@ class CPU:
         self.programme = []
         self.etiquettes = {}
         self.debug_info = []  # Stocker les informations de débogage
-        self.clavier_manager = clavier_manager
 
     def stdout(self, data="0x0"):
         # Nettoyer l'argument pour supprimer les commentaires éventuels
@@ -123,13 +88,7 @@ class CPU:
             print(f.warning + f"Aucun caractère valide à afficher. (code ascii: {retour_valeur})")
             return
 
-        char = chr(retour_valeur)
-        # Gestion du backspace dans le buffer
-        if char == '\b':
-            self.stdout_renderer.buffer = self.stdout_renderer.buffer[:-1]
-            self.stdout_renderer.render()
-        else:
-            self.stdout_renderer.write(char)
+        self.stdout_renderer.write(chr(retour_valeur))
 
     def charger_programme(self, programme_str):
         lignes = programme_str.strip().split('\n')
@@ -152,12 +111,18 @@ class CPU:
         self.etiquettes = {instr[1]: i for i, instr in enumerate(programme) if instr[0] == 'etiquette'}
 
     def afficher_etat_registres(self):
+        """
+        Affiche l'état actuel des registres.
+        """
         print("=== État des registres ===")
         for registre, valeur in self.registres.items():
             print(f.success + f"{registre}: {valeur}")
         print("==========================")
 
     def mov(self, dest, src):
+        """
+        Implémente l'instruction MOV : copie la valeur de src vers dest.
+        """
         # Si la source est un registre
         if isinstance(src, str) and src.startswith('0r'):
             valeur = self.registres[src[2:]]
@@ -175,38 +140,44 @@ class CPU:
             self.ram[int(dest)] = valeur
         else:
             raise ValueError(f"Destination invalide : {dest}")
-
+    
     def capturer_touche(self):
-        return self.clavier_manager.lire_touche()
+        for event in pygame.event.get():
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN: return ord('\n')
+                elif event.key == pygame.K_BACKSPACE: return ord('\b')
+                elif pygame.K_a <= event.key <= pygame.K_z: return event.key
+                elif pygame.K_0 <= event.key <= pygame.K_9: return event.key
+        return 0
 
     def interruptions(self):
-        self.registres['clavier'] = self.capturer_touche()
+        """
+        Gère les interruptions système, notamment la capture d'une touche.
+        """
+        self.registres['clavier'] = self.capturer_touche()  # Capture les événements clavier
 
     def executer(self):
         log_file_path = os.path.join(os.path.dirname(__file__), "logs_execution.txt")
         log_entry = []
-        clock = pygame.time.Clock()
         while self.rip < len(self.programme):
             self.interruptions()  # Gérer les interruptions
 
-            # On ne gère que la fermeture de la fenêtre ici
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    print(f.success + "Fermeture de la machine virtuelle.")
-                    return
+            if any(event.type == pygame.QUIT for event in pygame.event.get()):
+                print(f.success + "Fermeture de la machine virtuelle.")
+                return
 
             instr = self.programme[self.rip]
+
             op = instr[0]
             args = instr[1:]
             log_entry.append(f"Instruction exécutée : {instr}\n")
             self.debug_info.append(log_entry[-1])
-
+        
             try:
                 if op == 'stdout':
                     self.stdout(args[0])
                 elif op == 'stdoutflush':
                     self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
-                    self.stdout_renderer.render()
                 elif op == 'jmp':
                     self.rip = self.etiquettes[args[0]]
                     continue
@@ -228,14 +199,18 @@ class CPU:
             clock.tick(60)
 
         with open(log_file_path, "w") as log_file:
-            log_file.writelines(log_entry)
+            # Enregistrer dans le fichier de logs
+            log_file.write(log_entry)
+
+            # Afficher dans la console uniquement les 10 premières instructions
             if len(self.debug_info) <= 10:
-                print(''.join(log_entry).strip())
+                print(f.success + log_entry.strip())
+
 
         print(f.info + f"\nLes instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
 
     def afficher_etat(self):
-        print(f.info + f"Program ended at RIP: {self.rip} ( instruction {self.programme[self.rip] if self.rip < len(self.programme) else 'END'})")
+        print(f.info + f"Program ended at RIP: {self.rip} ( instruction {self.programme[self.rip]}")
         print("\n=== Registres : ===")
         for registre, valeur in self.registres.items():
             print(f.success + f"{registre}: {valeur}")
@@ -244,43 +219,39 @@ class CPU:
             print(f.success + info.strip())
         print(f.info + f"Les instructions complètes sont disponibles dans le fichier 'logs_execution.txt'.")
 
+
 if __name__ == "__main__":
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
     pygame.display.set_caption("Machine Virtuelle avec Pygame")
+    clock = pygame.time.Clock()
     font = pygame.font.Font(None, 24)
 
     programme = """
-print_hello:
-stdoutflush
-stdout 72    ; H
-stdout 101   ; e
-stdout 108   ; l
-stdout 108   ; l
-stdout 111   ; o
-stdout 32    ; (espace)
-stdout 87    ; W
-stdout 111   ; o
-stdout 114   ; r
-stdout 108   ; l
-stdout 100   ; d
-stdout 33    ; !
-stdout 0rclavier
+    print_hello:
+    stdoutflush
+    stdout 72    ; H
+    stdout 101   ; e
+    stdout 108   ; l
+    stdout 108   ; l
+    stdout 111   ; o
+    stdout 32    ; (espace)
+    stdout 87    ; W
+    stdout 111   ; o
+    stdout 114   ; r
+    stdout 108   ; l
+    stdout 100   ; d
+    stdout 33    ; !
+    stdout 0rclavier
 
-startvm:
-call print_hello
+    startvm:
+    call print_hello
 
-end:
-ret
-"""
-
-    clavier_manager = ClavierManager()
-    clavier_manager.demarrer()
-
-    cpu = CPU(screen, font, clavier_manager)
+    end:
+    ret
+    """
+    cpu = CPU(screen, font)
     cpu.charger_programme(programme)
     cpu.executer()
     cpu.afficher_etat()
-
-    clavier_manager.arreter()
     pygame.quit()
