@@ -66,14 +66,28 @@ class CPU:
         self.etiquettes = {}
         self.debug_info = []  # Stocker les informations de débogage
 
+    def detect_type(self, data):
+        if data.isdigit():
+            return "INT"
+        if isinstance(data, str):
+            if data.startswith('0r'):
+                return "REG"
+            if data.startswith('0x'):
+                return "RAM"
+            if data.startswith('0d'):
+                return "DISK"
+            return "STR"
+        raise TypeError(f"data \"{data}\" not supported")
+
+
     def stdout(self, data="0x0"):
         # Nettoyer l'argument pour supprimer les commentaires éventuels
         data = data.split(';')[0].strip()
-        if isinstance(data, str) and data.startswith('0r'):
+        if self.detect_type(data) == "REG":
             retour_valeur = self.registres[data[2:]]
-        elif isinstance(data, str) and data.startswith('0x'):
+        elif self.detect_type(data) == "RAM":
             retour_valeur = int(data, 16)
-        else:
+        elif self.detect_type(data) == "INT":
             retour_valeur = int(data)
 
         # Vérifier si la valeur est un caractère valide
@@ -112,11 +126,11 @@ class CPU:
         print("==========================")
 
     def mov(self, dest, src):
-        if isinstance(src, str) and src.startswith('0r'):
+        if self.detect_type(data) == "REG":
             valeur = self.registres[src[2:]]
-        elif isinstance(src, str) and src.startswith('0x'):
+        elif self.detect_type(data) == "RAM":
             valeur = int(src, 16)
-        else:
+        elif self.detect_type(data) == "INT":
             valeur = int(src)
 
         if dest in self.registres:
