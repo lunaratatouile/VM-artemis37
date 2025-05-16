@@ -126,17 +126,21 @@ class CPU:
         print("==========================")
 
     def mov(self, dest, src):
-        if self.detect_type(data) == "REG":
+        if self.detect_type(src) == "REG":
             valeur = self.registres[src[2:]]
-        elif self.detect_type(data) == "RAM":
-            valeur = int(src, 16)
-        elif self.detect_type(data) == "INT":
-            valeur = int(src)
+        elif self.detect_type(src) == "RAM":
+            valeur = self.ram[int(int(src, 16))]
+        elif self.detect_type(src) == "DISK":
+            valeur = self.disk[int(int(src, 16))]
+        else:
+            raise ValueError(f"Entrée invalide : {src}")
 
-        if dest in self.registres:
+        if self.detect_type(dest) == "REG":
             self.registres[dest] = valeur
-        elif dest.isdigit():
+        elif self.detect_type(dest) == "RAM":
             self.ram[int(dest)] = valeur
+        elif self.detect_type(data) == "DISK":
+            self.disk[int(int(src, 16))] = valeur
         else:
             raise ValueError(f"Destination invalide : {dest}")
 
@@ -185,6 +189,8 @@ class CPU:
                     continue
                 elif op == 'mov':
                     self.mov(*args)
+                elif op == 'set':
+                    self.set(*args)
                 elif op == 'waitkey':
                     self.waitkey()
                 elif op == 'ret':
