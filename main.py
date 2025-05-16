@@ -193,27 +193,28 @@ class CPU:
             self.debug_info.append(log_entry[-1])
 
             try:
-                if op == 'stdout':
-                    self.stdout(args[0])
-                elif op == 'stdoutflush':
-                    self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
-                elif op == 'jmp':
-                    self.rip = self.etiquettes[args[0]]
-                    continue
-                elif op == 'call':
-                    self.pile.append(self.rip + 1)
-                    self.rip = self.etiquettes[args[0]]
-                    continue
-                elif op == 'mov':
-                    self.mov(*args)
-                elif op == 'set':
-                    self.set(*args)
-                elif op == 'waitkey':
-                    self.waitkey()
-                elif op == 'ret':
-                    self.rip = self.pile.pop() if self.pile else len(self.programme)
-                else:
-                    raise ValueError(f"Instruction inconnue : {op}")
+                match op:
+                    case 'stdout':
+                        self.stdout(args[0])
+                    case 'stdoutflush':
+                        self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
+                    case 'jmp':
+                        self.rip = self.etiquettes[args[0]]
+                        continue
+                    case 'call':
+                        self.pile.append(self.rip + 1)
+                        self.rip = self.etiquettes[args[0]]
+                        continue
+                    case 'mov':
+                        self.mov(*args)
+                    case 'set':
+                        self.set(*args)
+                    case 'waitkey':
+                        self.waitkey()
+                    case 'ret':
+                        self.rip = self.pile.pop() if self.pile else len(self.programme)
+                    case _:
+                        raise ValueError(f"Instruction inconnue : {op}")
             except Exception as e:
                 print(f.error + f"Erreur lors de l'exécution de l'instruction {instr}: {e}")
                 break
