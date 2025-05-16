@@ -1,8 +1,6 @@
 import pygame
 import re
 import os
-import pyautogui
-import keyboard
 
 class Formatage:
     warning = "[!] "
@@ -30,8 +28,6 @@ class Memoire:
             raise IndexError(f.error + f"Adresse hors des limites : {adresse}")
         self.memoire[adresse] = valeur
 
-
-
 class PygameOutput:
     def __init__(self, screen, font, color, pos):
         self.screen = screen
@@ -57,7 +53,6 @@ class PygameOutput:
             self.screen.blit(rendered_char, (x, y))
             x += rendered_char.get_width()
         pygame.display.flip()
-
 
 class CPU:
     def __init__(self, screen, font):
@@ -111,68 +106,57 @@ class CPU:
         self.etiquettes = {instr[1]: i for i, instr in enumerate(programme) if instr[0] == 'etiquette'}
 
     def afficher_etat_registres(self):
-        """
-        Affiche l'état actuel des registres.
-        """
         print("=== État des registres ===")
         for registre, valeur in self.registres.items():
             print(f.success + f"{registre}: {valeur}")
         print("==========================")
 
     def mov(self, dest, src):
-        """
-        Implémente l'instruction MOV : copie la valeur de src vers dest.
-        """
-        # Si la source est un registre
         if isinstance(src, str) and src.startswith('0r'):
             valeur = self.registres[src[2:]]
-        # Si la source est une valeur immédiate (ex: 0x10 ou 42)
         elif isinstance(src, str) and src.startswith('0x'):
             valeur = int(src, 16)
         else:
             valeur = int(src)
 
-        # Si la destination est un registre
         if dest in self.registres:
             self.registres[dest] = valeur
-        # Si la destination est une adresse mémoire
         elif dest.isdigit():
             self.ram[int(dest)] = valeur
         else:
             raise ValueError(f"Destination invalide : {dest}")
-    
-    def capturer_touche(self):
-        for event in pygame.event.get():
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN: return ord('\n')
-                elif event.key == pygame.K_BACKSPACE: return ord('\b')
-                elif pygame.K_a <= event.key <= pygame.K_z: return event.key
-                elif pygame.K_0 <= event.key <= pygame.K_9: return event.key
-        return 0
 
-    def interruptions(self):
-        """
-        Gère les interruptions système, notamment la capture d'une touche.
-        """
-        self.registres['clavier'] = self.capturer_touche()  # Capture les événements clavier
+    def waitkey(self):
+        """Attend qu'une touche soit pressée et la stocke dans le registre 'clavier'."""
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                if event.type == pygame.KEYDOWN:
+                    self.registres['clavier'] = event.key
+                    print(f.info + f"Touche capturée: {event.key}")
+                    return
+            pygame.display.flip()
+            clock.tick(60)
 
     def executer(self):
         log_file_path = os.path.join(os.path.dirname(__file__), "logs_execution.txt")
         log_entry = []
         while self.rip < len(self.programme):
-            self.interruptions()  # Gérer les interruptions
+            # On ne gère plus les interruptions clavier ici
 
-            if any(event.type == pygame.QUIT for event in pygame.event.get()):
-                print(f.success + "Fermeture de la machine virtuelle.")
-                return
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    print(f.success + "Fermeture de la machine virtuelle.")
+                    return
 
             instr = self.programme[self.rip]
-
             op = instr[0]
             args = instr[1:]
             log_entry.append(f"Instruction exécutée : {instr}\n")
             self.debug_info.append(log_entry[-1])
-        
+
             try:
                 if op == 'stdout':
                     self.stdout(args[0])
@@ -187,6 +171,8 @@ class CPU:
                     continue
                 elif op == 'mov':
                     self.mov(*args)
+                elif op == 'waitkey':
+                    self.waitkey()
                 elif op == 'ret':
                     self.rip = self.pile.pop() if self.pile else len(self.programme)
                 else:
@@ -195,22 +181,17 @@ class CPU:
                 print(f.error + f"Erreur lors de l'exécution de l'instruction {instr}: {e}")
                 break
             self.rip += 1
-            # Limiter à 60 FPS
             clock.tick(60)
 
         with open(log_file_path, "w") as log_file:
-            # Enregistrer dans le fichier de logs
-            log_file.write(log_entry)
-
-            # Afficher dans la console uniquement les 10 premières instructions
+            log_file.write(''.join(log_entry))
             if len(self.debug_info) <= 10:
-                print(f.success + log_entry.strip())
-
+                print(f.success + ''.join(log_entry).strip())
 
         print(f.info + f"\nLes instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
 
     def afficher_etat(self):
-        print(f.info + f"Program ended at RIP: {self.rip} ( instruction {self.programme[self.rip]}")
+        print(f.info + f"Program ended at RIP: {self.rip} ( instruction {self.programme[self.rip-1] if self.rip > 0 else 'N/A'})")
         print("\n=== Registres : ===")
         for registre, valeur in self.registres.items():
             print(f.success + f"{registre}: {valeur}")
@@ -218,7 +199,6 @@ class CPU:
         for info in self.debug_info[:10]:  # Affiche uniquement les 10 premières instructions
             print(f.success + info.strip())
         print(f.info + f"Les instructions complètes sont disponibles dans le fichier 'logs_execution.txt'.")
-
 
 if __name__ == "__main__":
     pygame.init()
@@ -242,6 +222,7 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 100   ; d
     stdout 33    ; !
+    waitkey      ; <-- Attend une touche
     stdout 0rclavier
 
     startvm:
