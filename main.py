@@ -83,12 +83,15 @@ class CPU:
     def stdout(self, data="0x0"):
         # Nettoyer l'argument pour supprimer les commentaires éventuels
         data = data.split(';')[0].strip()
-        if self.detect_type(data) == "REG":
+        match self.detect_type(data):
+        case "REG":
             retour_valeur = self.registres[data[2:]]
-        elif self.detect_type(data) == "RAM":
+        case "RAM":
             retour_valeur = int(data, 16)
-        elif self.detect_type(data) == "INT":
+        case "INT":
             retour_valeur = int(data)
+        case _:
+            raise ValueError(f"Entrée invalide stdout: {data}")
 
         # Vérifier si la valeur est un caractère valide
         if not (0 <= retour_valeur <= 0x10FFFF):
@@ -126,40 +129,44 @@ class CPU:
         print("==========================")
 
     def mov(self, dest, src):
-        if self.detect_type(src) == "REG":
-            valeur = self.registres[src[2:]]
-        elif self.detect_type(src) == "RAM":
-            valeur = self.ram[int(int(src, 16))]
-        elif self.detect_type(src) == "DISK":
-            valeur = self.disk[int(int(src, 16))]
-        else:
-            raise ValueError(f"Entrée invalide mov: {src}")
+        match self.detect_type(src):
+            case "REG":
+                valeur = self.registres[src[2:]]
+            case "RAM":
+                valeur = self.ram[int(int(src, 16))]
+            case "DISK":
+                valeur = self.disk[int(int(src, 16))]
+            case _:
+                raise ValueError(f"Entrée invalide mov: {src}")
 
-        if self.detect_type(dest) == "REG":
-            self.registres[dest] = valeur
-        elif self.detect_type(dest) == "RAM":
-            self.ram[int(dest)] = valeur
-        elif self.detect_type(data) == "DISK":
-            self.disk[int(int(src, 16))] = valeur
-        else:
-            raise ValueError(f"Destination invalide mov: {dest}")
+        match self.detect_type(dest)
+            case "REG":
+                self.registres[dest] = valeur
+            case  "RAM":
+                self.ram[int(dest)] = valeur
+            case "DISK":
+                self.disk[int(int(src, 16))] = valeur
+            case _:
+                raise ValueError(f"Destination invalide mov: {dest}")
 
     def set(self, dest, src):
-        if self.detect_type(src) == "INT":
-            valeur = src
-        elif self.detect_type(src) == "STR":
-            valeur = str(src)
-        else:
-            raise ValueError(f"Entrée invalide set: {src}")
+        match self.detect_type(src)
+            case "INT":
+                valeur = src
+            case "STR":
+                valeur = str(src)
+            case _:
+                raise ValueError(f"Entrée invalide set: {src}")
 
-        if self.detect_type(dest) == "REG":
-            self.registres[dest] = valeur
-        elif self.detect_type(dest) == "RAM":
-            self.ram[int(dest)] = valeur
-        elif self.detect_type(data) == "DISK":
-            self.disk[int(int(src, 16))] = valeur
-        else:
-            raise ValueError(f"Destination invalide set: {dest}")
+        match self.detect_type(dest):
+            case "REG":
+                self.registres[dest] = valeur
+            case "RAM":
+                self.ram[int(dest)] = valeur
+            case "DISK":
+                self.disk[int(int(src, 16))] = valeur
+            case _:
+                raise ValueError(f"Destination invalide set: {dest}")
 
     def waitkey(self):
         """Attend qu'une touche soit pressée et la stocke dans le registre 'clavier'."""
