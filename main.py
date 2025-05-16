@@ -139,10 +139,10 @@ class CPU:
             case _:
                 raise ValueError(f"Entrée invalide mov: {src}")
 
-        match self.detect_type(dest)
+        match self.detect_type(dest):
             case "REG":
                 self.registres[dest] = valeur
-            case  "RAM":
+            case "RAM":
                 self.ram[int(dest)] = valeur
             case "DISK":
                 self.disk[int(int(src, 16))] = valeur
@@ -150,7 +150,7 @@ class CPU:
                 raise ValueError(f"Destination invalide mov: {dest}")
 
     def set(self, dest, src):
-        match self.detect_type(src)
+        match self.detect_type(src):
             case "INT":
                 valeur = src
             case "STR":
