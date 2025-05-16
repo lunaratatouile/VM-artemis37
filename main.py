@@ -91,7 +91,7 @@ class CPU:
             case "INT":
                 retour_valeur = int(data)
             case _:
-            raise ValueError(f"Entrée invalide stdout: {data}")
+                raise ValueError(f"Entrée invalide stdout: {data}")
 
         # Vérifier si la valeur est un caractère valide
         if not (0 <= retour_valeur <= 0x10FFFF):
