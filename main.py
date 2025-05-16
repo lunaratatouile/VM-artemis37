@@ -133,7 +133,7 @@ class CPU:
         elif self.detect_type(src) == "DISK":
             valeur = self.disk[int(int(src, 16))]
         else:
-            raise ValueError(f"Entrée invalide : {src}")
+            raise ValueError(f"Entrée invalide mov: {src}")
 
         if self.detect_type(dest) == "REG":
             self.registres[dest] = valeur
@@ -142,7 +142,24 @@ class CPU:
         elif self.detect_type(data) == "DISK":
             self.disk[int(int(src, 16))] = valeur
         else:
-            raise ValueError(f"Destination invalide : {dest}")
+            raise ValueError(f"Destination invalide mov: {dest}")
+
+    def set(self, dest, src):
+        if self.detect_type(src) == "INT":
+            valeur = src
+        elif self.detect_type(src) == "STR":
+            valeur = str(src)
+        else:
+            raise ValueError(f"Entrée invalide set: {src}")
+
+        if self.detect_type(dest) == "REG":
+            self.registres[dest] = valeur
+        elif self.detect_type(dest) == "RAM":
+            self.ram[int(dest)] = valeur
+        elif self.detect_type(data) == "DISK":
+            self.disk[int(int(src, 16))] = valeur
+        else:
+            raise ValueError(f"Destination invalide set: {dest}")
 
     def waitkey(self):
         """Attend qu'une touche soit pressée et la stocke dans le registre 'clavier'."""
