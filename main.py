@@ -143,9 +143,9 @@ class CPU:
             case "REG":
                 self.registres[dest] = valeur
             case "RAM":
-                self.ram[int(dest)] = valeur
+                self.ram[int(int(dest, 16))] = valeur
             case "DISK":
-                self.disk[int(int(src, 16))] = valeur
+                self.disk[int(int(dest, 16))] = valeur
             case _:
                 raise ValueError(f"Destination invalide mov: {dest}")
 
@@ -162,9 +162,9 @@ class CPU:
             case "REG":
                 self.registres[dest] = valeur
             case "RAM":
-                self.ram[int(dest)] = valeur
+                self.ram[int(int(dest, 16))] = valeur
             case "DISK":
-                self.disk[int(int(src, 16))] = valeur
+                self.disk[int(int(dest, 16))] = valeur
             case _:
                 raise ValueError(f"Destination invalide set: {dest}")
 
