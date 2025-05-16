@@ -84,13 +84,13 @@ class CPU:
         # Nettoyer l'argument pour supprimer les commentaires éventuels
         data = data.split(';')[0].strip()
         match self.detect_type(data):
-        case "REG":
-            retour_valeur = self.registres[data[2:]]
-        case "RAM":
-            retour_valeur = int(data, 16)
-        case "INT":
-            retour_valeur = int(data)
-        case _:
+            case "REG":
+                retour_valeur = self.registres[data[2:]]
+            case "RAM":
+                retour_valeur = int(data, 16)
+            case "INT":
+                retour_valeur = int(data)
+            case _:
             raise ValueError(f"Entrée invalide stdout: {data}")
 
         # Vérifier si la valeur est un caractère valide
