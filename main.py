@@ -11,7 +11,6 @@ class Formatage:
 f = Formatage
 
 def to_8bits(valeur):
-    """Force la valeur à rester sur 8 bits (modulo 256)."""
     return int(valeur) % 256
 
 class Memoire:
@@ -38,20 +37,18 @@ class PygameOutput:
         self.font = font
         self.color = color
         self.pos = pos
-        self.buffer = ""  # Utilisation d'une chaîne unique pour le texte
+        self.buffer = ""
 
     def write(self, text):
         if not isinstance(text, str):
             raise ValueError(f.error + f"Le texte à écrire doit être une chaîne de caractères. Reçu : {text}")
-        # Filtrer les caractères nuls
         text = text.replace('\x00', '')
-        self.buffer += text  # Ajouter le texte à la chaîne unique
+        self.buffer += text
         self.render()
 
     def render(self):
         x, y = self.pos
-        self.screen.fill((0, 0, 0))  # Efface l'écran une seule fois
-        # Afficher tout le texte sur une seule ligne
+        self.screen.fill((0, 0, 0))
         for char in self.buffer:
             rendered_char = self.font.render(char, True, self.color)
             self.screen.blit(rendered_char, (x, y))
@@ -69,7 +66,7 @@ class CPU:
         self.stdout_renderer = PygameOutput(screen, font, (255, 255, 255), (10, 10))
         self.programme = []
         self.etiquettes = {}
-        self.debug_info = []  # Stocker les informations de débogage
+        self.debug_info = []
 
     def detect_type(self, data):
         if isinstance(data, int) or (isinstance(data, str) and data.isdigit()):
@@ -87,7 +84,6 @@ class CPU:
         raise TypeError(f"data \"{data}\" not supported")
 
     def stdout(self, data="0x0"):
-        # Nettoyer l'argument pour supprimer les commentaires éventuels
         data = data.split(';')[0].strip()
         texte = ""
         type_data = self.detect_type(data)
@@ -123,10 +119,6 @@ class CPU:
             print(f.warning + f"Aucun caractère valide à afficher.")
 
     def setbuffer(self, name):
-        """
-        Initialise un buffer vide nommé 'name'.
-        Si le buffer existe déjà, il est réinitialisé.
-        """
         if not isinstance(name, str):
             raise ValueError(f.error + "Le nom du buffer doit être une chaîne de caractères.")
         if not name.startswith('0b'):
@@ -134,7 +126,6 @@ class CPU:
         self.buffers[name] = []
 
     def addbuffer(self, dest, src):
-        """Ajoute une valeur à un buffer nommé, en gérant les cas limites."""
         if dest not in self.buffers:
             raise ValueError(f.error + f"Buffer '{dest}' non initialisé.")
         type_src = self.detect_type(src)
@@ -161,25 +152,24 @@ class CPU:
     def charger_programme(self, programme_str):
         lignes = programme_str.strip().split('\n')
         programme = []
-        for ligne in lignes:
+        etiquettes = {}
+        for idx, ligne in enumerate(lignes):
             ligne = ligne.strip()
             if not ligne or ligne.startswith(';'):
                 continue
             if ':' in ligne and not ligne.split(':')[1].strip():
                 etiquette = ligne.replace(':', '').strip()
-                programme.append(('etiquette', etiquette))
+                etiquettes[etiquette] = len(programme)
                 continue
             tokens = re.split(r'\s+', ligne, maxsplit=1)
             instr = tokens[0]
-            # Récupérer la partie arguments+commentaires, ou chaîne vide si absent
             args_str = tokens[1] if len(tokens) > 1 else ''
-            # Enlever les commentaires (tout ce qui suit un ;)
             args_str = args_str.split(';')[0]
-            # Découper les arguments par la virgule, nettoyer les espaces
-            args = [arg.strip() for arg in args_str.split(',') if arg.strip()]
+            # Séparation par virgule OU espace(s)
+            args = [arg.strip() for arg in re.split(r'[,\s]+', args_str) if arg.strip()]
             programme.append((instr, *args))
-        self.programme = [instr for instr in programme if instr[0] != 'etiquette']
-        self.etiquettes = {instr[1]: i for i, instr in enumerate(programme) if instr[0] == 'etiquette'}
+        self.programme = programme
+        self.etiquettes = etiquettes
 
     def afficher_etat_registres(self):
         print("=== État des registres ===")
@@ -202,7 +192,7 @@ class CPU:
             case "INT":
                 valeur = to_8bits(int(src))
             case "STR":
-                valeur = to_8bits(ord(str(src)[0]))  # Prend le code ASCII du premier caractère
+                valeur = to_8bits(ord(str(src)[0]))
             case _:
                 raise ValueError(f"Entrée invalide mov: {src}")
 
@@ -224,7 +214,7 @@ class CPU:
             case "INT":
                 valeur = to_8bits(int(src))
             case "STR":
-                valeur = to_8bits(ord(str(src)[0]))  # Prend le code ASCII du premier caractère
+                valeur = to_8bits(ord(str(src)[0]))
             case _:
                 raise ValueError(f"Entrée invalide set: {src}")
 
@@ -241,7 +231,6 @@ class CPU:
                 raise ValueError(f"Destination invalide set: {dest}")
 
     def waitkey(self):
-        """Attend qu'une touche soit pressée et la stocke dans le registre 'clavier'."""
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -257,13 +246,12 @@ class CPU:
     def executer(self):
         log_file_path = os.path.join(os.path.dirname(__file__), "logs_execution.txt")
         log_entry = []
-        self.rip = 0  # Toujours réinitialiser RIP avant exécution
+        self.rip = 0
         while self.rip < len(self.programme):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     print(f.success + "Fermeture de la machine virtuelle.")
                     return
-
             instr = self.programme[self.rip]
             op = instr[0]
             args = instr[1:]
@@ -279,7 +267,7 @@ class CPU:
                     case 'stdout':
                         self.stdout(args[0])
                     case 'stdoutflush':
-                        self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
+                        self.stdout_renderer.buffer = ""
                     case 'jmp':
                         if args[0] not in self.etiquettes:
                             raise ValueError(f.error + f"Étiquette inconnue '{args[0]}' pour jmp.")
@@ -299,7 +287,6 @@ class CPU:
                         self.waitkey()
                     case 'ret':
                         if not self.pile:
-                            # Fin du programme
                             self.rip = len(self.programme)
                         else:
                             self.rip = self.pile.pop()
@@ -332,10 +319,9 @@ class CPU:
             texte = ''.join(chr(v) for v in valeur if v != 0)
             print(f.success + f"{buffer}: {texte!r} (codes: {valeur})")
         print("\n=== Informations de débogage ===")
-        for info in self.debug_info[:10]:  # Affiche uniquement les 10 premières instructions
+        for info in self.debug_info[:10]:
             print(f.success + info.strip())
         print(f.info + f"Les instructions complètes sont disponibles dans le fichier 'logs_execution.txt'.")
-
 
 if __name__ == "__main__":
     pygame.init()
@@ -360,20 +346,17 @@ if __name__ == "__main__":
     stdout 101   ; e
     stdout 108   ; l
     stdout 108   ; l
-    stdout 58    ;  
-    stdout 32    ; :
+    stdout 58    ; :
+    stdout 32    ;  
     ret
 
     save_key:
     waitkey      ; <-- Attend une touche
-    addbuffer 0bprompt, 0rclavier    ; ajoute la touche dans le buffer 0bprompt
-    ret
-    
-    show_buffer_keys:
-    stdout 0bprompt
+    addbuffer 0bprompt 0rclavier    ; ajoute la touche dans le buffer 0bprompt
     ret
 
-    end:
+    show_buffer_keys:
+    stdout 0bprompt
     ret
     """
     cpu = CPU(screen, font)
