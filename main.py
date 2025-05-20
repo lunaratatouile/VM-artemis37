@@ -10,6 +10,10 @@ class Formatage:
 
 f = Formatage
 
+def to_8bits(valeur):
+    """Force la valeur à rester sur 8 bits (modulo 256)."""
+    return int(valeur) % 256
+
 class Memoire:
     def __init__(self, taille):
         self.memoire = [0] * taille
@@ -19,16 +23,14 @@ class Memoire:
             raise ValueError(f.error + f"L'adresse doit être un entier. Adresse reçue : {adresse}")
         if not 0 <= adresse < len(self.memoire):
             raise IndexError(f.error + f"Adresse hors des limites : {adresse}")
-        # Retourne la valeur sur 8 bits
-        return self.memoire[adresse] & 0xFF
+        return to_8bits(self.memoire[adresse])
 
     def __setitem__(self, adresse, valeur):
         if not isinstance(adresse, int):
             raise ValueError(f.error + f"L'adresse doit être un entier. Adresse reçue : {adresse}")
         if not 0 <= adresse < len(self.memoire):
             raise IndexError(f.error + f"Adresse hors des limites : {adresse}")
-        # Stocke la valeur sur 8 bits
-        self.memoire[adresse] = int(valeur) & 0xFF
+        self.memoire[adresse] = to_8bits(valeur)
 
 class PygameOutput:
     def __init__(self, screen, font, color, pos):
@@ -81,17 +83,18 @@ class CPU:
             return "STR"
         raise TypeError(f"data \"{data}\" not supported")
 
-
     def stdout(self, data="0x0"):
         # Nettoyer l'argument pour supprimer les commentaires éventuels
         data = data.split(';')[0].strip()
         match self.detect_type(data):
             case "REG":
-                retour_valeur = self.registres[data[2:]]
+                retour_valeur = to_8bits(self.registres[data[2:]])
             case "RAM":
-                retour_valeur = int(data, 16)
+                retour_valeur = to_8bits(self.ram[int(data, 16)])
+            case "DISK":
+                retour_valeur = to_8bits(self.disk[int(data, 16)])
             case "INT":
-                retour_valeur = int(data)
+                retour_valeur = to_8bits(int(data))
             case _:
                 raise ValueError("\n" + f"Entrée invalide stdout: {data}")
 
@@ -133,40 +136,44 @@ class CPU:
     def mov(self, dest, src):
         match self.detect_type(src):
             case "REG":
-                valeur = self.registres[src[2:]]
+                valeur = to_8bits(self.registres[src[2:]])
             case "RAM":
-                valeur = self.ram[int(int(src, 16))]
+                valeur = to_8bits(self.ram[int(src, 16)])
             case "DISK":
-                valeur = self.disk[int(int(src, 16))]
+                valeur = to_8bits(self.disk[int(src, 16)])
+            case "INT":
+                valeur = to_8bits(int(src))
+            case "STR":
+                valeur = to_8bits(ord(str(src)[0]))  # Prend le code ASCII du premier caractère
             case _:
                 raise ValueError(f"Entrée invalide mov: {src}")
 
         match self.detect_type(dest):
             case "REG":
-                self.registres[dest] = valeur
+                self.registres[dest[2:]] = to_8bits(valeur)
             case "RAM":
-                self.ram[int(int(dest, 16))] = valeur
+                self.ram[int(dest, 16)] = to_8bits(valeur)
             case "DISK":
-                self.disk[int(int(dest, 16))] = valeur
+                self.disk[int(dest, 16)] = to_8bits(valeur)
             case _:
                 raise ValueError(f"Destination invalide mov: {dest}")
 
     def set(self, dest, src):
         match self.detect_type(src):
             case "INT":
-                valeur = src
+                valeur = to_8bits(src)
             case "STR":
-                valeur = str(src)
+                valeur = to_8bits(ord(str(src)[0]))  # Prend le code ASCII du premier caractère
             case _:
                 raise ValueError(f"Entrée invalide set: {src}")
 
         match self.detect_type(dest):
             case "REG":
-                self.registres[dest] = valeur
+                self.registres[dest[2:]] = to_8bits(valeur)
             case "RAM":
-                self.ram[int(int(dest, 16))] = valeur
+                self.ram[int(dest, 16)] = to_8bits(valeur)
             case "DISK":
-                self.disk[int(int(dest, 16))] = valeur
+                self.disk[int(dest, 16)] = to_8bits(valeur)
             case _:
                 raise ValueError(f"Destination invalide set: {dest}")
 
@@ -178,7 +185,7 @@ class CPU:
                     pygame.quit()
                     exit()
                 if event.type == pygame.KEYDOWN:
-                    self.registres['clavier'] = event.key
+                    self.registres['clavier'] = to_8bits(event.key)
                     print(f.info + f"Touche capturée: {event.key}")
                     return
             pygame.display.flip()
@@ -188,8 +195,6 @@ class CPU:
         log_file_path = os.path.join(os.path.dirname(__file__), "logs_execution.txt")
         log_entry = []
         while self.rip < len(self.programme):
-            # On ne gère plus les interruptions clavier ici
-
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     print(f.success + "Fermeture de la machine virtuelle.")
@@ -255,26 +260,29 @@ if __name__ == "__main__":
     font = pygame.font.Font(None, 24)
 
     programme = """
-    print_hello:
+    start_line:
     stdoutflush
-    stdout 72    ; H
+    stdout 36    ; $
+    stdout 115   ; s
+    stdout 104   ; h
     stdout 101   ; e
     stdout 108   ; l
     stdout 108   ; l
-    stdout 111   ; o
-    stdout 32    ; (espace)
-    stdout 87    ; W
-    stdout 111   ; o
-    stdout 114   ; r
-    stdout 108   ; l
-    stdout 100   ; d
-    stdout 33    ; !
+    stdout 58    ;  
+    stdout 32    ; :
+
+    save_key:
     waitkey      ; <-- Attend une touche
-    stdout 0rclavier
- 
- 
+    ; addbuffer 0bprompt 0rclavier (non implémenté ici)
+    
+    show_buffer_keys:
+    ; stdout 0bprompt (non implémenté ici)
+
     startvm:
-    call print_hello
+    call start_line
+    call save_key
+    call show_buffer_keys
+
     end:
     ret
     """
