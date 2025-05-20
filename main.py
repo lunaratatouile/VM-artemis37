@@ -67,24 +67,16 @@ class Assembleur:
     @staticmethod
     def lenbuffer(cpu, dest, src):
         match cpu.detect_type(dest):
-            case "REG":
-                cpu.registres[dest] = to_8bits(len(cpu.buffers[src]))
             case "RAM":
                 cpu.ram[int(dest, 16)] = to_8bits(len(cpu.buffers[src]))
-            case "DISK":
-                cpu.disk[int(dest, 16)] = to_8bits(len(cpu.buffers[src]))
             case _:
                 raise ValueError(f"Entrée invalide lenbuffer: {dest}")
 
     @staticmethod
     def addbuffer(cpu, dest, src):
         match cpu.detect_type(src):
-            case "REG":
-                valeur = to_8bits(cpu.registres[src])
             case "RAM":
                 valeur = to_8bits(cpu.ram[int(src, 16)])
-            case "DISK":
-                valeur = to_8bits(cpu.disk[int(src, 16)])
             case "INT":
                 valeur = to_8bits(int(src))
             case "STR":
@@ -100,14 +92,8 @@ class Assembleur:
         data = data.split(';')[0].strip()
         texte = ""
         match cpu.detect_type(data):
-            case "REG":
-                retour_valeur = to_8bits(cpu.registres[data])
-                texte = chr(retour_valeur)
             case "RAM":
                 retour_valeur = to_8bits(cpu.ram[int(data, 16)])
-                texte = chr(retour_valeur)
-            case "DISK":
-                retour_valeur = to_8bits(cpu.disk[int(data, 16)])
                 texte = chr(retour_valeur)
             case "INT":
                 retour_valeur = to_8bits(int(data))
@@ -127,28 +113,44 @@ class Assembleur:
     @staticmethod
     def mov(cpu, dest, src):
         match cpu.detect_type(src):
-            case "REG":
-                valeur = to_8bits(cpu.registres[src])
             case "RAM":
-                valeur = to_8bits(cpu.ram[int(src, 16)])
-            case "DISK":
-                valeur = to_8bits(cpu.disk[int(src, 16)])
-            case "INT":
-                valeur = to_8bits(int(src))
-            case "STR":
-                valeur = to_8bits(ord(str(src)[0]))
+                valeur = cpu.ram[int(src, 16)]
             case _:
                 raise ValueError(f"Entrée invalide mov: {src}")
 
         match cpu.detect_type(dest):
-            case "REG":
-                cpu.registres[dest] = to_8bits(valeur)
             case "RAM":
                 cpu.ram[int(dest, 16)] = to_8bits(valeur)
-            case "DISK":
-                cpu.disk[int(dest, 16)] = to_8bits(valeur)
             case _:
                 raise ValueError(f"Destination invalide mov: {dest}")
+    
+    @staticmethod
+    def ldr(cpu, dest, src): # RAM --> REG
+        match cpu.detect_type(src):
+            case "RAM":
+                valeur = to_8bits(cpu.ram[int(src, 16)])
+            case _:
+                raise ValueError(f"Entrée invalide ldr: {src}")
+
+        match cpu.detect_type(dest):
+            case "REG":
+                cpu.registres[dest] = to_8bits(valeur)
+            case _:
+                raise ValueError(f"Destination invalide ldr: {dest}")
+    
+    @staticmethod
+    def str(cpu, dest, src): # REG --> RAM
+        match cpu.detect_type(src):
+            case "REG":
+                valeur = cpu.registres[src]
+            case _:
+                raise ValueError(f"Entrée invalide str: {src}")
+
+        match cpu.detect_type(dest):
+            case "RAM":
+                cpu.ram[int(dest, 16)] = to_8bits(valeur)
+            case _:
+                raise ValueError(f"Destination invalide str: {dest}")
 
     @staticmethod
     def set(cpu, dest, src):
@@ -162,12 +164,8 @@ class Assembleur:
 
         dest_type = cpu.detect_type(dest)
         match dest_type:
-            case "REG":
-                cpu.registres[dest] = to_8bits(valeur)
             case "RAM":
                 cpu.ram[int(dest, 16)] = to_8bits(valeur)
-            case "DISK":
-                cpu.disk[int(dest, 16)] = to_8bits(valeur)
             case _:
                 raise ValueError(f"Destination invalide set: {dest}")
 
