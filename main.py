@@ -344,7 +344,8 @@ if __name__ == "__main__":
 
     save_key:
     waitkey      ; <-- Attend une touche
-    addbuffer 0bprompt 0rclavier    ; ajoute la touche dans le buffer 0bprompt
+    str 0x11 0rclavier
+    addbuffer 0bprompt 0x11    ; ajoute la touche dans le buffer 0bprompt
     ret
     """
     cpu = CPU(screen, font)
