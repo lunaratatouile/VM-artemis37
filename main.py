@@ -62,7 +62,8 @@ class CPU:
     def __init__(self, screen, font):
         self.disk = Memoire(4096)
         self.ram = Memoire(4096)
-        self.registres = {'clavier': 0}
+        self.registres = {'0rclavier': 0}
+        self.buffers = {}
         self.rip = 0
         self.pile = []
         self.stdout_renderer = PygameOutput(screen, font, (255, 255, 255), (10, 10))
@@ -80,6 +81,8 @@ class CPU:
                 return "RAM"
             if data.startswith('0d'):
                 return "DISK"
+            if data.startswith('0b'):
+                return "BUFFER"
             return "STR"
         raise TypeError(f"data \"{data}\" not supported")
 
@@ -89,23 +92,58 @@ class CPU:
         match self.detect_type(data):
             case "REG":
                 retour_valeur = to_8bits(self.registres[data[2:]])
+                texte = chr(retour_valeur)
             case "RAM":
                 retour_valeur = to_8bits(self.ram[int(data, 16)])
+                texte = chr(retour_valeur)
             case "DISK":
                 retour_valeur = to_8bits(self.disk[int(data, 16)])
+                texte = chr(retour_valeur)
             case "INT":
                 retour_valeur = to_8bits(int(data))
+                texte = chr(retour_valeur)
+            case "BUFFER":
+                buffer_name = data
+                if buffer_name not in self.buffers:
+                    raise ValueError(f.error + f"Buffer '{buffer_name}' non initialisé.")
+                texte = ''.join(chr(val) for val in self.buffers[buffer_name] if val != 0)
             case _:
                 raise ValueError("\n" + f"Entrée invalide stdout: {data}")
 
-        # Vérifier si la valeur est un caractère valide
-        if not (0 <= retour_valeur <= 0x10FFFF):
-            raise ValueError("\n" + f.error + f"Valeur Unicode invalide : {retour_valeur}")
-        elif retour_valeur == 0:  # Ignorer les caractères vides ou non valides
-            print("\n" + f.warning + f"Aucun caractère valide à afficher. (code ascii: {retour_valeur})")
-            return
+        if texte:
+            self.stdout_renderer.write(texte)
+        else:
+            print(f.warning + f"Aucun caractère valide à afficher.")
 
-        self.stdout_renderer.write(chr(retour_valeur))
+    def setbuffer(self, name):
+        """
+        Initialise un buffer vide nommé 'name'.
+        Si le buffer existe déjà, il est réinitialisé.
+        """
+        if not isinstance(name, str):
+            raise ValueError(f.error + "Le nom du buffer doit être une chaîne de caractères.")
+        if not name.startswith('0b'):
+            raise ValueError(f.error + "Le nom du buffer doit commencer par '0b'.")
+        self.buffers[name] = []
+
+    def addbuffer(self, dest, src):
+        """Ajoute une valeur à un buffer nommé."""
+        if dest not in self.buffers:
+            raise ValueError(f.error + f"Buffer '{dest}' non initialisé.")
+        match self.detect_type(src):
+            case "REG":
+                valeur = to_8bits(self.registres[src])
+            case "RAM":
+                valeur = to_8bits(self.ram[int(src, 16)])
+            case "DISK":
+                valeur = to_8bits(self.disk[int(src, 16)])
+            case "INT":
+                valeur = to_8bits(int(src))
+            case "STR":
+                valeur = to_8bits(ord(str(src)[0]))
+            case _:
+                raise ValueError(f"Entrée invalide addbuffer: {src}")
+        self.buffers[dest].append(valeur)
 
     def charger_programme(self, programme_str):
         lignes = programme_str.strip().split('\n')
@@ -118,7 +156,7 @@ class CPU:
                 etiquette = ligne.replace(':', '').strip()
                 programme.append(('etiquette', etiquette))
                 continue
-            tokens = re.split(r'\s+', ligne, maxsplit=1)
+            tokens = re.split(r'\s+', ligne, maxsplit=2)
             instr = tokens[0]
             args = tokens[1].split(',') if len(tokens) > 1 else []
             # Nettoyer les arguments en supprimant les commentaires
@@ -185,7 +223,7 @@ class CPU:
                     pygame.quit()
                     exit()
                 if event.type == pygame.KEYDOWN:
-                    self.registres['clavier'] = to_8bits(event.key)
+                    self.registres['0rclavier'] = to_8bits(event.key)
                     print(f.info + f"Touche capturée: {event.key}")
                     return
             pygame.display.flip()
@@ -208,6 +246,10 @@ class CPU:
 
             try:
                 match op:
+                    case 'setbuffer':
+                        self.setbuffer(args[0])
+                    case 'addbuffer':
+                        self.addbuffer(*args)
                     case 'stdout':
                         self.stdout(args[0])
                     case 'stdoutflush':
@@ -239,7 +281,6 @@ class CPU:
             log_file.write(''.join(log_entry))
             if len(self.debug_info) <= 10:
                 print(f.success + ''.join(log_entry).strip())
-
         print(f.info + f"Les instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
 
     def afficher_etat(self):
@@ -247,6 +288,10 @@ class CPU:
         print("\n=== Registres : ===")
         for registre, valeur in self.registres.items():
             print(f.success + f"{registre}: {valeur}")
+        print("\n=== Buffers : ===")
+        for buffer, valeur in self.buffers.items():
+            texte = ''.join(chr(v) for v in valeur if v != 0)
+            print(f.success + f"{buffer}: {texte!r} (codes: {valeur})")
         print("\n=== Informations de débogage ===")
         for info in self.debug_info[:10]:  # Affiche uniquement les 10 premières instructions
             print(f.success + info.strip())
@@ -260,6 +305,14 @@ if __name__ == "__main__":
     font = pygame.font.Font(None, 24)
 
     programme = """
+
+    startvm:
+    setbuffer 0bprompt
+    call start_line
+    call save_key
+    call show_buffer_keys
+    jmp startvm
+
     start_line:
     stdoutflush
     stdout 36    ; $
@@ -273,15 +326,10 @@ if __name__ == "__main__":
 
     save_key:
     waitkey      ; <-- Attend une touche
-    ; addbuffer 0bprompt 0rclavier (non implémenté ici)
+    addbuffer 0bprompt, 0rclavier    ; ajoute la touche dans le buffer 0bprompt
     
     show_buffer_keys:
-    ; stdout 0bprompt (non implémenté ici)
-
-    startvm:
-    call start_line
-    call save_key
-    call show_buffer_keys
+    stdout 0bprompt
 
     end:
     ret
