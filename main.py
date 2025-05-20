@@ -65,14 +65,21 @@ class Assembleur:
         cpu.buffers[name] = []
 
     @staticmethod
-    def addbuffer(cpu, dest, src):
-        if dest not in cpu.buffers:
-            raise ValueError(f.error + f"Buffer '{dest}' non initialisé.")
-        type_src = cpu.detect_type(src)
-        match type_src:
+    def lenbuffer(cpu, dest, src):
+        match cpu.detect_type(dest):
             case "REG":
-                if src not in cpu.registres:
-                    raise ValueError(f.error + f"Registre '{src}' non initialisé.")
+                cpu.registres[dest] = to_8bits(len(cpu.buffers[src]))
+            case "RAM":
+                cpu.ram[int(dest, 16)] = to_8bits(len(cpu.buffers[src]))
+            case "DISK":
+                cpu.disk[int(dest, 16)] = to_8bits(len(cpu.buffers[src]))
+            case _:
+                raise ValueError(f"Entrée invalide lenbuffer: {dest}")
+
+    @staticmethod
+    def addbuffer(cpu, dest, src):
+        match cpu.detect_type(src):
+            case "REG":
                 valeur = to_8bits(cpu.registres[src])
             case "RAM":
                 valeur = to_8bits(cpu.ram[int(src, 16)])
@@ -92,13 +99,9 @@ class Assembleur:
     def stdout(cpu, data="0x0"):
         data = data.split(';')[0].strip()
         texte = ""
-        type_data = cpu.detect_type(data)
-        match type_data:
+        match cpu.detect_type(data):
             case "REG":
-                reg_name = data
-                if reg_name not in cpu.registres:
-                    raise ValueError(f.error + f"Registre '{reg_name}' non initialisé.")
-                retour_valeur = to_8bits(cpu.registres[reg_name])
+                retour_valeur = to_8bits(cpu.registres[data])
                 texte = chr(retour_valeur)
             case "RAM":
                 retour_valeur = to_8bits(cpu.ram[int(data, 16)])
@@ -110,10 +113,7 @@ class Assembleur:
                 retour_valeur = to_8bits(int(data))
                 texte = chr(retour_valeur)
             case "BUFFER":
-                buffer_name = data
-                if buffer_name not in cpu.buffers:
-                    raise ValueError(f.error + f"Buffer '{buffer_name}' non initialisé.")
-                texte = ''.join(chr(val) for val in cpu.buffers[buffer_name])
+                texte = ''.join(chr(val) for val in cpu.buffers[data])
             case "STR":
                 texte = str(data)
             case _:
@@ -126,11 +126,8 @@ class Assembleur:
 
     @staticmethod
     def mov(cpu, dest, src):
-        src_type = cpu.detect_type(src)
-        match src_type:
+        match cpu.detect_type(src):
             case "REG":
-                if src not in cpu.registres:
-                    raise ValueError(f.error + f"Registre '{src}' non initialisé.")
                 valeur = to_8bits(cpu.registres[src])
             case "RAM":
                 valeur = to_8bits(cpu.ram[int(src, 16)])
@@ -143,8 +140,7 @@ class Assembleur:
             case _:
                 raise ValueError(f"Entrée invalide mov: {src}")
 
-        dest_type = cpu.detect_type(dest)
-        match dest_type:
+        match cpu.detect_type(dest):
             case "REG":
                 cpu.registres[dest] = to_8bits(valeur)
             case "RAM":
@@ -156,8 +152,7 @@ class Assembleur:
 
     @staticmethod
     def set(cpu, dest, src):
-        src_type = cpu.detect_type(src)
-        match src_type:
+        match cpu.detect_type(src):
             case "INT":
                 valeur = to_8bits(int(src))
             case "STR":
