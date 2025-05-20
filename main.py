@@ -55,6 +55,145 @@ class PygameOutput:
             x += rendered_char.get_width()
         pygame.display.flip()
 
+class Assembleur:
+    @staticmethod
+    def setbuffer(cpu, name):
+        if not isinstance(name, str):
+            raise ValueError(f.error + "Le nom du buffer doit être une chaîne de caractères.")
+        if not name.startswith('0b'):
+            raise ValueError(f.error + "Le nom du buffer doit commencer par '0b'.")
+        cpu.buffers[name] = []
+
+    @staticmethod
+    def addbuffer(cpu, dest, src):
+        if dest not in cpu.buffers:
+            raise ValueError(f.error + f"Buffer '{dest}' non initialisé.")
+        type_src = cpu.detect_type(src)
+        match type_src:
+            case "REG":
+                if src not in cpu.registres:
+                    raise ValueError(f.error + f"Registre '{src}' non initialisé.")
+                valeur = to_8bits(cpu.registres[src])
+            case "RAM":
+                valeur = to_8bits(cpu.ram[int(src, 16)])
+            case "DISK":
+                valeur = to_8bits(cpu.disk[int(src, 16)])
+            case "INT":
+                valeur = to_8bits(int(src))
+            case "STR":
+                if not src:
+                    raise ValueError(f.error + "Impossible d'ajouter une chaîne vide au buffer.")
+                valeur = to_8bits(ord(str(src)[0]))
+            case _:
+                raise ValueError(f"Entrée invalide addbuffer: {src}")
+        cpu.buffers[dest].append(valeur)
+
+    @staticmethod
+    def stdout(cpu, data="0x0"):
+        data = data.split(';')[0].strip()
+        texte = ""
+        type_data = cpu.detect_type(data)
+        match type_data:
+            case "REG":
+                reg_name = data
+                if reg_name not in cpu.registres:
+                    raise ValueError(f.error + f"Registre '{reg_name}' non initialisé.")
+                retour_valeur = to_8bits(cpu.registres[reg_name])
+                texte = chr(retour_valeur)
+            case "RAM":
+                retour_valeur = to_8bits(cpu.ram[int(data, 16)])
+                texte = chr(retour_valeur)
+            case "DISK":
+                retour_valeur = to_8bits(cpu.disk[int(data, 16)])
+                texte = chr(retour_valeur)
+            case "INT":
+                retour_valeur = to_8bits(int(data))
+                texte = chr(retour_valeur)
+            case "BUFFER":
+                buffer_name = data
+                if buffer_name not in cpu.buffers:
+                    raise ValueError(f.error + f"Buffer '{buffer_name}' non initialisé.")
+                texte = ''.join(chr(val) for val in cpu.buffers[buffer_name])
+            case "STR":
+                texte = str(data)
+            case _:
+                raise ValueError("\n" + f"Entrée invalide stdout: {data}")
+
+        if texte:
+            cpu.stdout_renderer.write(texte)
+        else:
+            print(f.warning + f"Aucun caractère valide à afficher.")
+
+    @staticmethod
+    def mov(cpu, dest, src):
+        src_type = cpu.detect_type(src)
+        match src_type:
+            case "REG":
+                if src not in cpu.registres:
+                    raise ValueError(f.error + f"Registre '{src}' non initialisé.")
+                valeur = to_8bits(cpu.registres[src])
+            case "RAM":
+                valeur = to_8bits(cpu.ram[int(src, 16)])
+            case "DISK":
+                valeur = to_8bits(cpu.disk[int(src, 16)])
+            case "INT":
+                valeur = to_8bits(int(src))
+            case "STR":
+                valeur = to_8bits(ord(str(src)[0]))
+            case _:
+                raise ValueError(f"Entrée invalide mov: {src}")
+
+        dest_type = cpu.detect_type(dest)
+        match dest_type:
+            case "REG":
+                cpu.registres[dest] = to_8bits(valeur)
+            case "RAM":
+                cpu.ram[int(dest, 16)] = to_8bits(valeur)
+            case "DISK":
+                cpu.disk[int(dest, 16)] = to_8bits(valeur)
+            case _:
+                raise ValueError(f"Destination invalide mov: {dest}")
+
+    @staticmethod
+    def set(cpu, dest, src):
+        src_type = cpu.detect_type(src)
+        match src_type:
+            case "INT":
+                valeur = to_8bits(int(src))
+            case "STR":
+                valeur = to_8bits(ord(str(src)[0]))
+            case _:
+                raise ValueError(f"Entrée invalide set: {src}")
+
+        dest_type = cpu.detect_type(dest)
+        match dest_type:
+            case "REG":
+                cpu.registres[dest] = to_8bits(valeur)
+            case "RAM":
+                cpu.ram[int(dest, 16)] = to_8bits(valeur)
+            case "DISK":
+                cpu.disk[int(dest, 16)] = to_8bits(valeur)
+            case _:
+                raise ValueError(f"Destination invalide set: {dest}")
+
+    @staticmethod
+    def stdoutflush(cpu):
+        cpu.stdout_renderer.buffer = ""
+
+    @staticmethod
+    def waitkey(cpu):
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    exit()
+                if event.type == pygame.KEYDOWN:
+                    cpu.registres['0rclavier'] = to_8bits(event.key)
+                    print(f.info + f"Touche capturée: {event.key}")
+                    return
+            pygame.display.flip()
+            clock.tick(60)
+
 class CPU:
     def __init__(self, screen, font):
         self.disk = Memoire(4096)
@@ -83,133 +222,6 @@ class CPU:
             return "STR"
         raise TypeError(f"data \"{data}\" not supported")
 
-    def stdout(self, data="0x0"):
-        data = data.split(';')[0].strip()
-        texte = ""
-        type_data = self.detect_type(data)
-        match type_data:
-            case "REG":
-                if reg_name not in self.registres:
-                    raise ValueError(f.error + f"Registre '{reg_name}' non initialisé.")
-                retour_valeur = to_8bits(self.registres[reg_name])
-                texte = chr(retour_valeur)
-            case "RAM":
-                retour_valeur = to_8bits(self.ram[int(data, 16)])
-                texte = chr(retour_valeur)
-            case "DISK":
-                retour_valeur = to_8bits(self.disk[int(data, 16)])
-                texte = chr(retour_valeur)
-            case "INT":
-                retour_valeur = to_8bits(int(data))
-                texte = chr(retour_valeur)
-            case "BUFFER":
-                buffer_name = data
-                if buffer_name not in self.buffers:
-                    raise ValueError(f.error + f"Buffer '{buffer_name}' non initialisé.")
-                texte = ''.join(chr(val) for val in self.buffers[buffer_name])
-            case "STR":
-                texte = str(data)
-            case _:
-                raise ValueError("\n" + f"Entrée invalide stdout: {data}")
-
-        if texte:
-            self.stdout_renderer.write(texte)
-        else:
-            print(f.warning + f"Aucun caractère valide à afficher.")
-
-    def setbuffer(self, name):
-        if not isinstance(name, str):
-            raise ValueError(f.error + "Le nom du buffer doit être une chaîne de caractères.")
-        if not name.startswith('0b'):
-            raise ValueError(f.error + "Le nom du buffer doit commencer par '0b'.")
-        self.buffers[name] = []
-
-    def addbuffer(self, dest, src):
-        if dest not in self.buffers:
-            raise ValueError(f.error + f"Buffer '{dest}' non initialisé.")
-        type_src = self.detect_type(src)
-        match type_src:
-            case "REG":
-                if src not in self.registres:
-                    raise ValueError(f.error + f"Registre '{src}' non initialisé.")
-                valeur = to_8bits(self.registres[src])
-            case "RAM":
-                valeur = to_8bits(self.ram[int(src, 16)])
-            case "DISK":
-                valeur = to_8bits(self.disk[int(src, 16)])
-            case "INT":
-                valeur = to_8bits(int(src))
-            case "STR":
-                if not src:
-                    raise ValueError(f.error + "Impossible d'ajouter une chaîne vide au buffer.")
-                valeur = to_8bits(ord(str(src)[0]))
-            case _:
-                raise ValueError(f"Entrée invalide addbuffer: {src}")
-        self.buffers[dest].append(valeur)
-
-    def mov(self, dest, src):
-        src_type = self.detect_type(src)
-        match src_type:
-            case "REG":
-                if src not in self.registres:
-                    raise ValueError(f.error + f"Registre '{src}' non initialisé.")
-                valeur = to_8bits(self.registres[src])
-            case "RAM":
-                valeur = to_8bits(self.ram[int(src, 16)])
-            case "DISK":
-                valeur = to_8bits(self.disk[int(src, 16)])
-            case "INT":
-                valeur = to_8bits(int(src))
-            case "STR":
-                valeur = to_8bits(ord(str(src)[0]))
-            case _:
-                raise ValueError(f"Entrée invalide mov: {src}")
-
-        dest_type = self.detect_type(dest)
-        match dest_type:
-            case "REG":
-                self.registres[dest] = to_8bits(valeur)
-            case "RAM":
-                self.ram[int(dest, 16)] = to_8bits(valeur)
-            case "DISK":
-                self.disk[int(dest, 16)] = to_8bits(valeur)
-            case _:
-                raise ValueError(f"Destination invalide mov: {dest}")
-
-    def set(self, dest, src):
-        src_type = self.detect_type(src)
-        match src_type:
-            case "INT":
-                valeur = to_8bits(int(src))
-            case "STR":
-                valeur = to_8bits(ord(str(src)[0]))
-            case _:
-                raise ValueError(f"Entrée invalide set: {src}")
-
-        dest_type = self.detect_type(dest)
-        match dest_type:
-            case "REG":
-                self.registres[src] = to_8bits(valeur)
-            case "RAM":
-                self.ram[int(dest, 16)] = to_8bits(valeur)
-            case "DISK":
-                self.disk[int(dest, 16)] = to_8bits(valeur)
-            case _:
-                raise ValueError(f"Destination invalide set: {dest}")
-
-    def waitkey(self):
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    exit()
-                if event.type == pygame.KEYDOWN:
-                    self.registres['0rclavier'] = to_8bits(event.key)
-                    print(f.info + f"Touche capturée: {event.key}")
-                    return
-            pygame.display.flip()
-            clock.tick(60)
-
     def charger_programme(self, programme_str):
         lignes = programme_str.strip().split('\n')
         programme = []
@@ -226,7 +238,6 @@ class CPU:
             instr = tokens[0]
             args_str = tokens[1] if len(tokens) > 1 else ''
             args_str = args_str.split(';')[0]
-            # Séparation par virgule OU espace(s)
             args = [arg.strip() for arg in re.split(r'[,\s]+', args_str) if arg.strip()]
             programme.append((instr, *args))
         self.programme = programme
@@ -254,40 +265,29 @@ class CPU:
             self.debug_info.append(log_entry[-1])
 
             try:
-                match op:
-                    case 'setbuffer':
-                        self.setbuffer(*args)
-                    case 'addbuffer':
-                        self.addbuffer(*args)
-                    case 'stdout':
-                        self.stdout(*args)
-                    case 'mov':
-                        self.mov(*args)
-                    case 'set':
-                        self.set(*args)
-                    case 'stdoutflush':
-                        self.stdout_renderer.buffer = ""
-                    case 'jmp':
-                        if args[0] not in self.etiquettes:
-                            raise ValueError(f.error + f"Étiquette inconnue '{args[0]}' pour jmp.")
-                        self.rip = self.etiquettes[args[0]]
-                        continue
-                    case 'call':
-                        if args[0] not in self.etiquettes:
-                            raise ValueError(f.error + f"Étiquette inconnue '{args[0]}' pour call.")
-                        self.pile.append(self.rip + 1)
-                        self.rip = self.etiquettes[args[0]]
-                        continue
-                    case 'waitkey':
-                        self.waitkey()
-                    case 'ret':
-                        if not self.pile:
-                            self.rip = len(self.programme)
-                        else:
-                            self.rip = self.pile.pop()
-                        continue
-                    case _:
-                        raise ValueError(f"Instruction inconnue : {op}")
+                # Instructions de contrôle de flux
+                if op == 'jmp':
+                    if args[0] not in self.etiquettes:
+                        raise ValueError(f.error + f"Étiquette inconnue '{args[0]}' pour jmp.")
+                    self.rip = self.etiquettes[args[0]]
+                    continue
+                elif op == 'call':
+                    if args[0] not in self.etiquettes:
+                        raise ValueError(f.error + f"Étiquette inconnue '{args[0]}' pour call.")
+                    self.pile.append(self.rip + 1)
+                    self.rip = self.etiquettes[args[0]]
+                    continue
+                elif op == 'ret':
+                    if not self.pile:
+                        self.rip = len(self.programme)
+                    else:
+                        self.rip = self.pile.pop()
+                    continue
+                # Appel dynamique des commandes assembleur
+                elif hasattr(Assembleur, op):
+                    getattr(Assembleur, op)(self, *args)
+                else:
+                    raise ValueError(f"Instruction inconnue : {op}")
             except Exception as e:
                 print(f.error + f"Erreur lors de l'exécution de l'instruction {instr}: {e}")
                 break
@@ -353,8 +353,6 @@ if __name__ == "__main__":
     waitkey      ; <-- Attend une touche
     addbuffer 0bprompt 0rclavier    ; ajoute la touche dans le buffer 0bprompt
     ret
-
-
     """
     cpu = CPU(screen, font)
     cpu.charger_programme(programme)
