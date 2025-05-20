@@ -328,7 +328,6 @@ if __name__ == "__main__":
 
     start_line:
     stdoutflush
-    stdout 36    ; $
     stdout 115   ; s
     stdout 104   ; h
     stdout 101   ; e
