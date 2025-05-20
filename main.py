@@ -19,14 +19,14 @@ class Memoire:
             raise ValueError(f.error + f"L'adresse doit être un entier. Adresse reçue : {adresse}")
         if not 0 <= adresse < len(self.memoire):
             raise IndexError(f.error + f"Adresse hors des limites : {adresse}")
-        return self.memoire[adresse]
+        return self.memoire[adresse] & 0xFF  # Toujours retourner 8 bits
 
     def __setitem__(self, adresse, valeur):
         if not isinstance(adresse, int):
             raise ValueError(f.error + f"L'adresse doit être un entier. Adresse reçue : {adresse}")
         if not 0 <= adresse < len(self.memoire):
             raise IndexError(f.error + f"Adresse hors des limites : {adresse}")
-        self.memoire[adresse] = valeur
+        self.memoire[adresse] = int(valeur) & 0xFF  # Toujours stocker sur 8 bits
 
 class PygameOutput:
     def __init__(self, screen, font, color, pos):
@@ -91,13 +91,13 @@ class CPU:
             case "INT":
                 retour_valeur = int(data)
             case _:
-                raise ValueError(f"Entrée invalide stdout: {data}")
+                raise ValueError("\n" + f"Entrée invalide stdout: {data}")
 
         # Vérifier si la valeur est un caractère valide
         if not (0 <= retour_valeur <= 0x10FFFF):
-            raise ValueError(f.error + f"Valeur Unicode invalide : {retour_valeur}")
+            raise ValueError("\n" + f.error + f"Valeur Unicode invalide : {retour_valeur}")
         elif retour_valeur == 0:  # Ignorer les caractères vides ou non valides
-            print(f.warning + f"Aucun caractère valide à afficher. (code ascii: {retour_valeur})")
+            print("\n" + f.warning + f"Aucun caractère valide à afficher. (code ascii: {retour_valeur})")
             return
 
         self.stdout_renderer.write(chr(retour_valeur))
@@ -233,7 +233,7 @@ class CPU:
             if len(self.debug_info) <= 10:
                 print(f.success + ''.join(log_entry).strip())
 
-        print(f.info + f"\nLes instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
+        print(f.info + f"Les instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
 
     def afficher_etat(self):
         print(f.info + f"Program ended at RIP: {self.rip} ( instruction {self.programme[self.rip-1] if self.rip > 0 else 'N/A'})")
@@ -269,10 +269,10 @@ if __name__ == "__main__":
     stdout 33    ; !
     waitkey      ; <-- Attend une touche
     stdout 0rclavier
-
+ 
+ 
     startvm:
     call print_hello
-
     end:
     ret
     """
