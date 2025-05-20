@@ -107,7 +107,7 @@ class CPU:
                 buffer_name = data
                 if buffer_name not in self.buffers:
                     raise ValueError(f.error + f"Buffer '{buffer_name}' non initialisé.")
-                texte = ''.join(chr(val) for val in self.buffers[buffer_name] if val != 0)
+                texte = ''.join(chr(val) for val in self.buffers[buffer_name])
             case "STR":
                 texte = str(data)
             case _:
@@ -331,8 +331,8 @@ if __name__ == "__main__":
     font = pygame.font.Font(None, 24)
 
     programme = """
-    startvm:
     setbuffer 0bprompt
+    startvm:
     call start_line
     call save_key
     call show_buffer_keys
@@ -348,6 +348,7 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 58    ; :
     stdout 32    ;  
+    stdout 0bprompt    ; afficher le buffer 0bprompt
     ret
 
     save_key:
