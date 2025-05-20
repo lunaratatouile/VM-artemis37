@@ -62,7 +62,7 @@ class CPU:
     def __init__(self, screen, font):
         self.disk = Memoire(4096)
         self.ram = Memoire(4096)
-        self.registres = {'0rclavier': 0}
+        self.registres = {'clavier': 0}
         self.buffers = {}
         self.rip = 0
         self.pile = []
@@ -72,7 +72,7 @@ class CPU:
         self.debug_info = []  # Stocker les informations de débogage
 
     def detect_type(self, data):
-        if data.isdigit():
+        if isinstance(data, int) or (isinstance(data, str) and data.isdigit()):
             return "INT"
         if isinstance(data, str):
             if data.startswith('0r'):
@@ -89,9 +89,14 @@ class CPU:
     def stdout(self, data="0x0"):
         # Nettoyer l'argument pour supprimer les commentaires éventuels
         data = data.split(';')[0].strip()
-        match self.detect_type(data):
+        texte = ""
+        type_data = self.detect_type(data)
+        match type_data:
             case "REG":
-                retour_valeur = to_8bits(self.registres[data[2:]])
+                reg_name = data[2:] if data.startswith('0r') else data
+                if reg_name not in self.registres:
+                    raise ValueError(f.error + f"Registre '{reg_name}' non initialisé.")
+                retour_valeur = to_8bits(self.registres[reg_name])
                 texte = chr(retour_valeur)
             case "RAM":
                 retour_valeur = to_8bits(self.ram[int(data, 16)])
@@ -107,6 +112,8 @@ class CPU:
                 if buffer_name not in self.buffers:
                     raise ValueError(f.error + f"Buffer '{buffer_name}' non initialisé.")
                 texte = ''.join(chr(val) for val in self.buffers[buffer_name] if val != 0)
+            case "STR":
+                texte = str(data)
             case _:
                 raise ValueError("\n" + f"Entrée invalide stdout: {data}")
 
@@ -133,7 +140,10 @@ class CPU:
         type_src = self.detect_type(src)
         match type_src:
             case "REG":
-                valeur = to_8bits(self.registres[src])
+                reg_name = src[2:] if src.startswith('0r') else src
+                if reg_name not in self.registres:
+                    raise ValueError(f.error + f"Registre '{reg_name}' non initialisé.")
+                valeur = to_8bits(self.registres[reg_name])
             case "RAM":
                 valeur = to_8bits(self.ram[int(src, 16)])
             case "DISK":
@@ -161,13 +171,10 @@ class CPU:
                 continue
             tokens = re.split(r'\s+', ligne, maxsplit=1)
             instr = tokens[0]
-            
             # Récupérer la partie arguments+commentaires, ou chaîne vide si absent
             args_str = tokens[1] if len(tokens) > 1 else ''
-            
             # Enlever les commentaires (tout ce qui suit un ;)
             args_str = args_str.split(';')[0]
-            
             # Découper les arguments par la virgule, nettoyer les espaces
             args = [arg.strip() for arg in args_str.split(',') if arg.strip()]
             programme.append((instr, *args))
@@ -181,9 +188,13 @@ class CPU:
         print("==========================")
 
     def mov(self, dest, src):
-        match self.detect_type(src):
+        src_type = self.detect_type(src)
+        match src_type:
             case "REG":
-                valeur = to_8bits(self.registres[src[2:]])
+                reg_name = src[2:] if src.startswith('0r') else src
+                if reg_name not in self.registres:
+                    raise ValueError(f.error + f"Registre '{reg_name}' non initialisé.")
+                valeur = to_8bits(self.registres[reg_name])
             case "RAM":
                 valeur = to_8bits(self.ram[int(src, 16)])
             case "DISK":
@@ -195,9 +206,11 @@ class CPU:
             case _:
                 raise ValueError(f"Entrée invalide mov: {src}")
 
-        match self.detect_type(dest):
+        dest_type = self.detect_type(dest)
+        match dest_type:
             case "REG":
-                self.registres[dest[2:]] = to_8bits(valeur)
+                reg_name = dest[2:] if dest.startswith('0r') else dest
+                self.registres[reg_name] = to_8bits(valeur)
             case "RAM":
                 self.ram[int(dest, 16)] = to_8bits(valeur)
             case "DISK":
@@ -206,17 +219,20 @@ class CPU:
                 raise ValueError(f"Destination invalide mov: {dest}")
 
     def set(self, dest, src):
-        match self.detect_type(src):
+        src_type = self.detect_type(src)
+        match src_type:
             case "INT":
-                valeur = to_8bits(src)
+                valeur = to_8bits(int(src))
             case "STR":
                 valeur = to_8bits(ord(str(src)[0]))  # Prend le code ASCII du premier caractère
             case _:
                 raise ValueError(f"Entrée invalide set: {src}")
 
-        match self.detect_type(dest):
+        dest_type = self.detect_type(dest)
+        match dest_type:
             case "REG":
-                self.registres[dest[2:]] = to_8bits(valeur)
+                reg_name = dest[2:] if dest.startswith('0r') else dest
+                self.registres[reg_name] = to_8bits(valeur)
             case "RAM":
                 self.ram[int(dest, 16)] = to_8bits(valeur)
             case "DISK":
@@ -232,7 +248,7 @@ class CPU:
                     pygame.quit()
                     exit()
                 if event.type == pygame.KEYDOWN:
-                    self.registres['0rclavier'] = to_8bits(event.key)
+                    self.registres['clavier'] = to_8bits(event.key)
                     print(f.info + f"Touche capturée: {event.key}")
                     return
             pygame.display.flip()
@@ -241,6 +257,7 @@ class CPU:
     def executer(self):
         log_file_path = os.path.join(os.path.dirname(__file__), "logs_execution.txt")
         log_entry = []
+        self.rip = 0  # Toujours réinitialiser RIP avant exécution
         while self.rip < len(self.programme):
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -264,9 +281,13 @@ class CPU:
                     case 'stdoutflush':
                         self.stdout_renderer.buffer = ""  # Réinitialise la chaîne unique pour un nouvel affichage
                     case 'jmp':
+                        if args[0] not in self.etiquettes:
+                            raise ValueError(f.error + f"Étiquette inconnue '{args[0]}' pour jmp.")
                         self.rip = self.etiquettes[args[0]]
                         continue
                     case 'call':
+                        if args[0] not in self.etiquettes:
+                            raise ValueError(f.error + f"Étiquette inconnue '{args[0]}' pour call.")
                         self.pile.append(self.rip + 1)
                         self.rip = self.etiquettes[args[0]]
                         continue
@@ -277,7 +298,12 @@ class CPU:
                     case 'waitkey':
                         self.waitkey()
                     case 'ret':
-                        self.rip = self.pile.pop() if self.pile else len(self.programme)
+                        if not self.pile:
+                            # Fin du programme
+                            self.rip = len(self.programme)
+                        else:
+                            self.rip = self.pile.pop()
+                        continue
                     case _:
                         raise ValueError(f"Instruction inconnue : {op}")
             except Exception as e:
