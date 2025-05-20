@@ -127,10 +127,11 @@ class CPU:
         self.buffers[name] = []
 
     def addbuffer(self, dest, src):
-        """Ajoute une valeur à un buffer nommé."""
+        """Ajoute une valeur à un buffer nommé, en gérant les cas limites."""
         if dest not in self.buffers:
             raise ValueError(f.error + f"Buffer '{dest}' non initialisé.")
-        match self.detect_type(src):
+        type_src = self.detect_type(src)
+        match type_src:
             case "REG":
                 valeur = to_8bits(self.registres[src])
             case "RAM":
@@ -140,6 +141,8 @@ class CPU:
             case "INT":
                 valeur = to_8bits(int(src))
             case "STR":
+                if not src:
+                    raise ValueError(f.error + "Impossible d'ajouter une chaîne vide au buffer.")
                 valeur = to_8bits(ord(str(src)[0]))
             case _:
                 raise ValueError(f"Entrée invalide addbuffer: {src}")
@@ -156,11 +159,17 @@ class CPU:
                 etiquette = ligne.replace(':', '').strip()
                 programme.append(('etiquette', etiquette))
                 continue
-            tokens = re.split(r'\s+', ligne, maxsplit=2)
+            tokens = re.split(r'\s+', ligne, maxsplit=1)
             instr = tokens[0]
-            args = tokens[1].split(',') if len(tokens) > 1 else []
-            # Nettoyer les arguments en supprimant les commentaires
-            args = [arg.split(';')[0].strip() for arg in args]
+            
+            # Récupérer la partie arguments+commentaires, ou chaîne vide si absent
+            args_str = tokens[1] if len(tokens) > 1 else ''
+            
+            # Enlever les commentaires (tout ce qui suit un ;)
+            args_str = args_str.split(';')[0]
+            
+            # Découper les arguments par la virgule, nettoyer les espaces
+            args = [arg.strip() for arg in args_str.split(',') if arg.strip()]
             programme.append((instr, *args))
         self.programme = [instr for instr in programme if instr[0] != 'etiquette']
         self.etiquettes = {instr[1]: i for i, instr in enumerate(programme) if instr[0] == 'etiquette'}
@@ -284,7 +293,11 @@ class CPU:
         print(f.info + f"Les instructions complètes sont enregistrées dans le fichier '{log_file_path}'.")
 
     def afficher_etat(self):
-        print(f.info + f"Program ended at RIP: {self.rip} ( instruction {self.programme[self.rip-1] if self.rip > 0 else 'N/A'})")
+        if 0 < self.rip <= len(self.programme):
+            last_instr = self.programme[self.rip-1]
+        else:
+            last_instr = 'N/A'
+        print(f.info + f"Program ended at RIP: {self.rip} ( instruction {last_instr})")
         print("\n=== Registres : ===")
         for registre, valeur in self.registres.items():
             print(f.success + f"{registre}: {valeur}")
@@ -297,6 +310,7 @@ class CPU:
             print(f.success + info.strip())
         print(f.info + f"Les instructions complètes sont disponibles dans le fichier 'logs_execution.txt'.")
 
+
 if __name__ == "__main__":
     pygame.init()
     screen = pygame.display.set_mode((800, 600))
@@ -305,7 +319,6 @@ if __name__ == "__main__":
     font = pygame.font.Font(None, 24)
 
     programme = """
-
     startvm:
     setbuffer 0bprompt
     call start_line
@@ -323,13 +336,16 @@ if __name__ == "__main__":
     stdout 108   ; l
     stdout 58    ;  
     stdout 32    ; :
+    ret
 
     save_key:
     waitkey      ; <-- Attend une touche
     addbuffer 0bprompt, 0rclavier    ; ajoute la touche dans le buffer 0bprompt
+    ret
     
     show_buffer_keys:
     stdout 0bprompt
+    ret
 
     end:
     ret
