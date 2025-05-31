@@ -4,8 +4,8 @@ import os
 
 class Formatage:
     warning = "[!] "
-    error = "[X] "
-    success = "[+] "
+    error = "[E] "
+    success = "[✓] "
     info = "[i] "
 
 f = Formatage
